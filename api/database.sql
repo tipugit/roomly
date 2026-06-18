@@ -1,0 +1,103 @@
+-- Roomly database schema (MySQL / MariaDB on Namecheap cPanel)
+-- Create database in cPanel first, then import this file via phpMyAdmin.
+
+CREATE TABLE IF NOT EXISTS users (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  name VARCHAR(120) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS houses (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id INT UNSIGNED NOT NULL UNIQUE,
+  active_bill_id VARCHAR(64) NULL,
+  dark_mode TINYINT(1) NOT NULL DEFAULT 0,
+  settings_json JSON NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS roommates (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  house_id INT UNSIGNED NOT NULL,
+  name VARCHAR(120) NOT NULL,
+  room VARCHAR(32) NOT NULL DEFAULT '',
+  phone VARCHAR(64) NOT NULL DEFAULT '',
+  email VARCHAR(255) NOT NULL DEFAULT '',
+  status ENUM('Active','Pending','Inactive') NOT NULL DEFAULT 'Active',
+  occupation VARCHAR(120) NOT NULL DEFAULT '',
+  join_date VARCHAR(32) NOT NULL DEFAULT '',
+  share_label VARCHAR(32) NOT NULL DEFAULT '$0',
+  initials VARCHAR(8) NOT NULL DEFAULT '',
+  avatar_grad VARCHAR(255) NOT NULL DEFAULT '',
+  pay_status ENUM('Paid','Partial','Pending') NOT NULL DEFAULT 'Pending',
+  color VARCHAR(16) NOT NULL DEFAULT '#4F46E5',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (house_id) REFERENCES houses(id) ON DELETE CASCADE,
+  INDEX idx_roommates_house (house_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS bills (
+  id VARCHAR(64) PRIMARY KEY,
+  house_id INT UNSIGNED NOT NULL,
+  month_label VARCHAR(64) NOT NULL,
+  house_name VARCHAR(120) NOT NULL,
+  rent DECIMAL(12,2) NOT NULL DEFAULT 0,
+  selected_roommate_ids JSON NOT NULL,
+  announcement_title VARCHAR(120) NULL,
+  announcement_message TEXT NULL,
+  parking_snapshot JSON NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (house_id) REFERENCES houses(id) ON DELETE CASCADE,
+  INDEX idx_bills_house (house_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS bill_expenses (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  bill_id VARCHAR(64) NOT NULL,
+  name VARCHAR(120) NOT NULL,
+  amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  category VARCHAR(64) NOT NULL DEFAULT 'Other',
+  paid_by INT UNSIGNED NULL,
+  note VARCHAR(255) NULL,
+  icon VARCHAR(16) NULL,
+  share_mode VARCHAR(16) NOT NULL DEFAULT 'all',
+  shared_by JSON NULL,
+  FOREIGN KEY (bill_id) REFERENCES bills(id) ON DELETE CASCADE,
+  INDEX idx_expenses_bill (bill_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS bill_shares (
+  bill_id VARCHAR(64) NOT NULL,
+  roommate_id INT UNSIGNED NOT NULL,
+  share_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  paid_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  status ENUM('Paid','Partial','Pending') NOT NULL DEFAULT 'Pending',
+  PRIMARY KEY (bill_id, roommate_id),
+  FOREIGN KEY (bill_id) REFERENCES bills(id) ON DELETE CASCADE,
+  FOREIGN KEY (roommate_id) REFERENCES roommates(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS activities (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  house_id INT UNSIGNED NOT NULL,
+  icon VARCHAR(32) NOT NULL,
+  label VARCHAR(120) NOT NULL,
+  description_text VARCHAR(255) NOT NULL,
+  color VARCHAR(16) NOT NULL,
+  bg VARCHAR(16) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (house_id) REFERENCES houses(id) ON DELETE CASCADE,
+  INDEX idx_activities_house (house_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS share_tokens (
+  token VARCHAR(64) PRIMARY KEY,
+  bill_id VARCHAR(64) NOT NULL,
+  house_id INT UNSIGNED NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (bill_id) REFERENCES bills(id) ON DELETE CASCADE,
+  FOREIGN KEY (house_id) REFERENCES houses(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

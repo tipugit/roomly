@@ -1,0 +1,13 @@
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+* { scrollbar-width: none; }
+*::-webkit-scrollbar { display: none; }
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: white !important; }
+  main { overflow: visible !important; }
+}
