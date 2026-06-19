@@ -94,12 +94,9 @@ export function buildMemberShareBreakdown(
 
   let parkingShare = 0;
   for (const assignment of activeParking) {
-    if (assignment.shareSpace) {
-      if (selectedIds.includes(roommateId)) {
-        parkingShare += assignment.monthlyFee / selectedIds.length;
-      }
-    } else if (assignment.roommateId === roommateId) {
-      parkingShare += assignment.monthlyFee;
+    const sharers = getParkingShareMemberIds(assignment, selectedIds);
+    if (sharers.includes(roommateId) && sharers.length > 0) {
+      parkingShare += assignment.monthlyFee / sharers.length;
     }
   }
 
@@ -152,6 +149,7 @@ export function buildParkingSnapshotFromSettings(settings: Settings): ParkingSna
       monthlyFee: a.monthlyFee,
       active: a.active,
       shareSpace: a.shareSpace ?? false,
+      sharedBy: a.shareSpace && a.sharedBy?.length ? a.sharedBy : undefined,
     })),
   };
 }
@@ -170,7 +168,12 @@ export function getParkingShareMemberIds(
   assignment: ParkingAssignment,
   selectedIds: number[]
 ): number[] {
-  if (assignment.shareSpace) return selectedIds;
+  if (assignment.shareSpace) {
+    const ids = assignment.sharedBy?.length
+      ? assignment.sharedBy.filter((id) => selectedIds.includes(id))
+      : selectedIds;
+    return ids.length > 0 ? ids : selectedIds;
+  }
   return assignment.roommateId != null ? [assignment.roommateId] : [];
 }
 

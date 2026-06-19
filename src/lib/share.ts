@@ -71,9 +71,10 @@ export function parseHashRoute(): { page: string; shareData: string | null; shar
   const hash = window.location.hash.replace(/^#/, "");
   if (!hash || hash === "/") return { page: "landing", shareData: null, shareToken: null };
 
-  if (hash.startsWith("/share/")) {
-    const data = hash.slice("/share/".length);
-    if (/^[a-zA-Z0-9]{6,32}$/.test(data) && !data.includes(".") && data.length < 40) {
+  if (hash.startsWith("/s/") || hash.startsWith("/share/")) {
+    const prefix = hash.startsWith("/s/") ? "/s/" : "/share/";
+    const data = hash.slice(prefix.length);
+    if (/^[a-zA-Z0-9]{4,32}$/.test(data) && !data.includes(".") && data.length < 40) {
       return { page: "shared-bill", shareData: null, shareToken: data };
     }
     return { page: "shared-bill", shareData: data, shareToken: null };
@@ -84,8 +85,10 @@ export function parseHashRoute(): { page: string; shareData: string | null; shar
 }
 
 export function buildShareUrlFromToken(token: string): string {
-  const base = window.location.href.split("#")[0].split("?")[0];
-  return `${base}#/share/${token}`;
+  const base = typeof window !== "undefined"
+    ? window.location.href.split("#")[0].split("?")[0]
+    : "https://rent.otipu.com";
+  return `${base}#/s/${token}`;
 }
 
 export function setHashRoute(page: string) {

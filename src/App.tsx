@@ -25,7 +25,7 @@ function LoadingScreen() {
 
 function AppContent() {
   const { user } = useAuth();
-  const { page, setPage, showToast, sharedPayload } = useApp();
+  const { page, setPage, sharedPayload } = useApp();
 
   if (page === "shared-bill") {
     return (
@@ -59,7 +59,6 @@ function AppContent() {
         return (
           <BillDetailsPage
             onBack={() => setPage("bills")}
-            onShareView={() => { setPage("shared-bill"); showToast("Opening public share page", "info"); }}
           />
         );
       case "analytics": return <AnalyticsPage />;

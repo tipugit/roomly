@@ -9,6 +9,10 @@ import {
   XCircle,
   Car,
   PieChart as PieChartIcon,
+  Edit2,
+  Copy,
+  Check,
+  Trash2,
 } from "lucide-react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { useApp } from "@/context/AppContext";
@@ -39,19 +43,25 @@ const statusConfig: Record<string, { bg: string; text: string; icon: ReactNode }
 interface BillDetailModalProps {
   bill: Bill | null;
   onClose: () => void;
-  onShareView?: () => void;
   onEdit?: () => void;
-  linkCopied?: boolean;
   onCopyLink?: () => void;
+  onOpenPublicLink?: () => void;
+  onDuplicate?: () => void;
+  onMarkPaid?: () => void;
+  onDelete?: () => void;
+  linkCopied?: boolean;
 }
 
 export function BillDetailModal({
   bill,
   onClose,
-  onShareView,
   onEdit,
-  linkCopied,
   onCopyLink,
+  onOpenPublicLink,
+  onDuplicate,
+  onMarkPaid,
+  onDelete,
+  linkCopied,
 }: BillDetailModalProps) {
   const { roommates, settings, updatePayment, showToast } = useApp();
   const roundUp = settings.roundUpAmounts ?? false;
@@ -118,7 +128,7 @@ export function BillDetailModal({
       onClick={onClose}
     >
       <div
-        className="w-full sm:max-w-4xl max-h-[95vh] sm:max-h-[92vh] overflow-hidden flex flex-col rounded-t-3xl sm:rounded-3xl"
+        className="w-full sm:w-[min(96vw,1100px)] max-h-[96vh] overflow-hidden flex flex-col rounded-t-3xl sm:rounded-3xl"
         style={{
           background: "var(--background)",
           boxShadow: "0 32px 80px rgba(79,70,229,0.3)",
@@ -175,48 +185,38 @@ export function BillDetailModal({
 
         {/* Actions */}
         <div
-          className="flex gap-2 px-5 py-3 overflow-x-auto flex-shrink-0"
+          className="flex flex-wrap gap-2 px-5 py-3 flex-shrink-0"
           style={{ borderBottom: "1px solid var(--border)", background: "var(--card)" }}
         >
-          {onCopyLink && (
-            <button
-              type="button"
-              onClick={onCopyLink}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl font-semibold flex-shrink-0 text-xs"
-              style={{
-                background: linkCopied ? "#ECFDF5" : "var(--muted)",
-                color: linkCopied ? "#059669" : "var(--foreground)",
-              }}
-            >
-              <Link2 size={13} />
-              {linkCopied ? "Copied" : "Copy Link"}
-            </button>
-          )}
-          {onShareView && (
-            <button
-              type="button"
-              onClick={onShareView}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl font-semibold flex-shrink-0 text-xs"
-              style={{ background: "#EEF2FF", color: "#4F46E5" }}
-            >
-              <ExternalLink size={13} />
-              Public View
-            </button>
-          )}
-          {onEdit && (
-            <button
-              type="button"
-              onClick={onEdit}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl font-semibold flex-shrink-0 text-xs"
-              style={{ background: "#FFFBEB", color: "#D97706" }}
-            >
-              Edit Bill
-            </button>
+          {[
+            { label: linkCopied ? "Copied!" : "Copy Link", icon: Link2, onClick: onCopyLink, active: linkCopied, color: "#059669", bg: "#ECFDF5" },
+            { label: "Public Link", icon: ExternalLink, onClick: onOpenPublicLink, color: "#4F46E5", bg: "#EEF2FF" },
+            { label: "Edit", icon: Edit2, onClick: onEdit, color: "#D97706", bg: "#FFFBEB" },
+            { label: "Duplicate", icon: Copy, onClick: onDuplicate, color: "#64748B", bg: "var(--muted)" },
+            { label: "Mark Paid", icon: Check, onClick: onMarkPaid, color: "#059669", bg: "#ECFDF5" },
+            { label: "Delete", icon: Trash2, onClick: onDelete, color: "#EF4444", bg: "#FEF2F2" },
+          ].map((action) =>
+            action.onClick ? (
+              <button
+                key={action.label}
+                type="button"
+                onClick={action.onClick}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-semibold text-xs transition-all active:scale-95"
+                style={{
+                  background: action.active ? action.bg : action.bg,
+                  color: action.color,
+                  border: `1px solid ${action.color}22`,
+                }}
+              >
+                <action.icon size={13} />
+                {action.label}
+              </button>
+            ) : null
           )}
           <button
             type="button"
             onClick={() => { printPage(); showToast("Use Save as PDF in print dialog", "info"); }}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl font-semibold text-white flex-shrink-0 text-xs ml-auto"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl font-semibold text-white text-xs ml-auto"
             style={{ background: "linear-gradient(135deg, #4F46E5, #7C3AED)" }}
           >
             <Download size={13} />

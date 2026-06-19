@@ -110,7 +110,7 @@ const demoSettings = {
   memberCanEditExpenses: false,
   memberCanInvite: false,
   adminName: "Admin User",
-  adminEmail: "admin@roomly.app",
+  adminEmail: "admin@otipu.com",
   adminPassword: "",
   globalMessageTitle: "House Guidelines",
   globalMessage: "Please keep common areas clean and report maintenance issues promptly.",

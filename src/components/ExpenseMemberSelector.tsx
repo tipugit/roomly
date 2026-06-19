@@ -1,4 +1,5 @@
-import { Check } from "lucide-react";
+import { Users, UserCheck } from "lucide-react";
+import { MemberCheckboxGrid } from "@/components/MemberCheckboxGrid";
 import type { Roommate } from "@/types";
 
 interface ExpenseMemberSelectorProps {
@@ -16,95 +17,63 @@ export function ExpenseMemberSelector({
   onShareModeChange,
   onSelectedChange,
 }: ExpenseMemberSelectorProps) {
-  const toggleMember = (id: number) => {
-    if (shareMode !== "selected") return;
-    onSelectedChange(
-      selectedIds.includes(id) ? selectedIds.filter((i) => i !== id) : [...selectedIds, id]
-    );
-  };
+  const modes = [
+    { id: "all" as const, label: "All Members", icon: Users, desc: "Split equally among everyone on this bill" },
+    { id: "selected" as const, label: "Selected Only", icon: UserCheck, desc: "Pick specific members who share this expense" },
+  ];
 
   return (
     <div className="mt-3 pt-3" style={{ borderTop: "1px dashed var(--border)" }}>
-      <div className="flex items-center justify-between mb-3">
-        <span style={{ color: "var(--foreground)", fontSize: "11px", fontWeight: 700, letterSpacing: "0.3px" }}>
-          SPLIT AMONG
-        </span>
-        <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: "var(--muted)" }}>
-          {(["all", "selected"] as const).map((mode) => (
+      <p style={{ color: "var(--foreground)", fontSize: "11px", fontWeight: 700, letterSpacing: "0.3px", marginBottom: 8 }}>
+        WHO SHARES THIS EXPENSE?
+      </p>
+
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        {modes.map((mode) => {
+          const active = shareMode === mode.id;
+          const Icon = mode.icon;
+          return (
             <button
-              key={mode}
+              key={mode.id}
               type="button"
               onClick={() => {
-                onShareModeChange(mode);
-                if (mode === "all") onSelectedChange([]);
+                onShareModeChange(mode.id);
+                if (mode.id === "all") onSelectedChange([]);
               }}
-              className="px-3 py-1 rounded-md font-semibold transition-all"
+              className="p-3 rounded-xl text-left transition-all"
               style={{
-                background: shareMode === mode ? "white" : "transparent",
-                color: shareMode === mode ? "#4F46E5" : "var(--muted-foreground)",
-                fontSize: "10px",
-                boxShadow: shareMode === mode ? "0 1px 4px rgba(79,70,229,0.12)" : "none",
+                background: active ? "#EEF2FF" : "var(--card)",
+                border: `2px solid ${active ? "#4F46E5" : "var(--border)"}`,
+                boxShadow: active ? "0 4px 12px rgba(79,70,229,0.12)" : "none",
               }}
             >
-              {mode === "all" ? "All Members" : "Selected Only"}
+              <div className="flex items-center gap-2 mb-1">
+                <Icon size={14} style={{ color: active ? "#4F46E5" : "#94A3B8" }} />
+                <span style={{ fontSize: "11px", fontWeight: 700, color: active ? "#4F46E5" : "var(--foreground)" }}>
+                  {mode.label}
+                </span>
+              </div>
+              <p style={{ fontSize: "9px", color: active ? "#6366F1" : "var(--muted-foreground)", lineHeight: 1.4 }}>
+                {mode.desc}
+              </p>
             </button>
-          ))}
-        </div>
+          );
+        })}
       </div>
 
-      {shareMode === "all" ? (
-        <p style={{ color: "var(--muted-foreground)", fontSize: "11px" }}>
-          Split equally among all members included in this bill.
-        </p>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {roommates.map((r) => {
-            const isOn = selectedIds.includes(r.id);
-            return (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() => toggleMember(r.id)}
-                className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all text-left"
-                style={{
-                  background: isOn ? r.color + "12" : "var(--card)",
-                  border: `2px solid ${isOn ? r.color : "var(--border)"}`,
-                }}
-              >
-                <div
-                  className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 transition-all"
-                  style={{
-                    background: isOn ? r.color : "var(--muted)",
-                    border: isOn ? "none" : "1.5px solid var(--border)",
-                  }}
-                >
-                  {isOn && <Check size={12} className="text-white" strokeWidth={3} />}
-                </div>
-                <div className="min-w-0">
-                  <div
-                    style={{
-                      color: isOn ? r.color : "var(--foreground)",
-                      fontSize: "12px",
-                      fontWeight: isOn ? 700 : 500,
-                    }}
-                    className="truncate"
-                  >
-                    {r.name.split(" ")[0]}
-                  </div>
-                  <div style={{ color: "var(--muted-foreground)", fontSize: "9px" }}>Room {r.room}</div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
       {shareMode === "selected" && (
-        <p style={{ color: "#4F46E5", fontSize: "10px", fontWeight: 600, marginTop: 8 }}>
-          {selectedIds.length === 0
-            ? "Select at least one member"
-            : `${selectedIds.length} member${selectedIds.length !== 1 ? "s" : ""} selected`}
-        </p>
+        <>
+          <MemberCheckboxGrid
+            members={roommates.map((r) => ({ id: r.id, name: r.name, room: r.room, color: r.color }))}
+            selectedIds={selectedIds}
+            onChange={onSelectedChange}
+          />
+          <p style={{ color: "#4F46E5", fontSize: "10px", fontWeight: 600, marginTop: 8 }}>
+            {selectedIds.length === 0
+              ? "Select at least one member"
+              : `${selectedIds.length} member${selectedIds.length !== 1 ? "s" : ""} selected`}
+          </p>
+        </>
       )}
     </div>
   );

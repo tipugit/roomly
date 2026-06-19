@@ -21,6 +21,7 @@ import {
   FileText,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
+import { MemberCheckboxGrid } from "@/components/MemberCheckboxGrid";
 import type { ParkingAssignmentTemplate, Settings } from "@/types";
 
 const sidebarSections = [
@@ -615,27 +616,33 @@ export function SettingsPage() {
                             />
                           </div>
                         </td>
-                        <td className="px-3 py-3">
-                          <div>
+                        <td className="px-3 py-3 align-top">
+                          <div className="min-w-[160px]">
                             <Toggle
                               on={a.shareSpace ?? false}
-                              onToggle={() =>
-                                updateParkingAssignment(a.id, { shareSpace: !(a.shareSpace ?? false) })
-                              }
+                              onToggle={() => {
+                                const next = !(a.shareSpace ?? false);
+                                updateParkingAssignment(a.id, {
+                                  shareSpace: next,
+                                  sharedBy: next ? roommates.map((r) => r.id) : [],
+                                });
+                              }}
                               color="#0D9488"
                             />
                             {(a.shareSpace ?? false) ? (
-                              <div className="mt-2 px-2 py-1.5 rounded-lg" style={{ background: "#ECFDF5", maxWidth: 140 }}>
-                                <p style={{ color: "#059669", fontSize: "9px", fontWeight: 600, lineHeight: 1.4 }}>
-                                  Shared by:{" "}
-                                  {roommates.map((r) => r.name.split(" ")[0]).join(", ") || "All members"}
+                              <div className="mt-2 p-2 rounded-xl" style={{ background: "#ECFDF5", border: "1px solid rgba(16,185,129,0.15)" }}>
+                                <p style={{ color: "#059669", fontSize: "9px", fontWeight: 700, marginBottom: 6 }}>
+                                  WHO PAYS FOR THIS SPOT?
                                 </p>
-                                <p style={{ color: "#64748B", fontSize: "8px", marginTop: 2 }}>
-                                  Fee split among all members
-                                </p>
+                                <MemberCheckboxGrid
+                                  compact
+                                  members={roommates.map((r) => ({ id: r.id, name: r.name, color: r.color }))}
+                                  selectedIds={a.sharedBy?.length ? a.sharedBy : roommates.map((r) => r.id)}
+                                  onChange={(ids) => updateParkingAssignment(a.id, { sharedBy: ids })}
+                                />
                               </div>
                             ) : (
-                              <p style={{ color: "var(--muted-foreground)", fontSize: "9px", marginTop: 4, maxWidth: 100 }}>
+                              <p style={{ color: "var(--muted-foreground)", fontSize: "9px", marginTop: 4 }}>
                                 Exclusive — assignee pays full fee
                               </p>
                             )}

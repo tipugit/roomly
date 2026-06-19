@@ -19,6 +19,7 @@ import {
   calcCollectionSummary,
   formatAmount,
   formatParkingShareLabel,
+  getParkingShareMemberIds,
 } from "@/lib/utils";
 
 const expenseCategories = [
@@ -468,8 +469,17 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
 
           <SectionCard
             title="Additional Expenses"
-            subtitle="Add utilities, services, and other shared costs"
+            subtitle="Utilities and shared costs — set amount, who paid upfront, and who splits each item"
           >
+            <div
+              className="flex gap-2.5 p-3 rounded-xl mb-4"
+              style={{ background: "#EEF2FF", border: "1px solid rgba(79,70,229,0.15)" }}
+            >
+              <Info size={14} className="flex-shrink-0 mt-0.5" style={{ color: "#4F46E5" }} />
+              <p style={{ color: "#4338CA", fontSize: "11px", lineHeight: 1.5, margin: 0 }}>
+                Each expense has three parts: <strong>Amount</strong> to split, <strong>Paid by</strong> (who already paid — leave Unpaid if nobody has), and <strong>Who shares</strong> (all bill members or selected only). Rent is split separately above.
+              </p>
+            </div>
             <div className="space-y-2.5 mb-4">
               {expenses.map((exp, idx) => (
                 <div
@@ -510,71 +520,84 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
                       <Trash2 size={12} style={{ color: "#EF4444" }} />
                     </button>
                   </div>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Description"
-                      value={exp.name}
-                      onChange={(e) => updateExpense(exp.id, "name", e.target.value)}
-                      className="flex-1 px-3 py-1.5 rounded-lg outline-none min-w-0"
-                      style={{
-                        background: "var(--card)",
-                        border: "1px solid var(--border)",
-                        color: "var(--foreground)",
-                        fontSize: "12px",
-                      }}
-                    />
-                    <div className="relative w-20 flex-shrink-0">
-                      <span
-                        className="absolute left-2 top-1/2 -translate-y-1/2"
-                        style={{ color: "var(--muted-foreground)", fontSize: "12px" }}
-                      >
-                        $
-                      </span>
+                  <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
+                    <div className="flex-1 min-w-0">
+                      <label style={{ color: "var(--muted-foreground)", fontSize: "10px", fontWeight: 600, display: "block", marginBottom: 4 }}>
+                        DESCRIPTION
+                      </label>
                       <input
-                        type="number"
-                        placeholder="0"
-                        value={exp.amount}
-                        onChange={(e) => updateExpense(exp.id, "amount", e.target.value)}
-                        className="w-full pl-6 pr-2 py-1.5 rounded-lg outline-none"
+                        type="text"
+                        placeholder="e.g. Internet bill"
+                        value={exp.name}
+                        onChange={(e) => updateExpense(exp.id, "name", e.target.value)}
+                        className="w-full px-3 py-1.5 rounded-lg outline-none"
                         style={{
                           background: "var(--card)",
                           border: "1px solid var(--border)",
                           color: "var(--foreground)",
                           fontSize: "12px",
-                          fontWeight: 600,
                         }}
                       />
                     </div>
-                    <select
-                      value={exp.paidBy ?? ""}
-                      onChange={(e) =>
-                        updateExpense(
-                          exp.id,
-                          "paidBy",
-                          e.target.value === "" ? null : parseInt(e.target.value, 10)
-                        )
-                      }
-                      className="w-24 sm:w-28 px-2 py-1.5 rounded-lg outline-none appearance-none flex-shrink-0"
-                      style={{
-                        background: exp.paidBy ? "#ECFDF5" : "#FEF2F2",
-                        border: `1px solid ${exp.paidBy ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.2)"}`,
-                        color: "var(--foreground)",
-                        fontSize: "12px",
-                      }}
-                    >
-                      <option value="">Unpaid</option>
-                      {selected.map((id) => {
-                        const r = roommates.find((rm) => rm.id === id);
-                        if (!r) return null;
-                        return (
-                          <option key={r.id} value={r.id}>
-                            {r.name.split(" ")[0]}
-                          </option>
-                        );
-                      })}
-                    </select>
+                    <div className="w-24 flex-shrink-0">
+                      <label style={{ color: "var(--muted-foreground)", fontSize: "10px", fontWeight: 600, display: "block", marginBottom: 4 }}>
+                        AMOUNT
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2" style={{ color: "var(--muted-foreground)", fontSize: "12px" }}>$</span>
+                        <input
+                          type="number"
+                          placeholder="0"
+                          value={exp.amount}
+                          onChange={(e) => updateExpense(exp.id, "amount", e.target.value)}
+                          className="w-full pl-6 pr-2 py-1.5 rounded-lg outline-none"
+                          style={{
+                            background: "var(--card)",
+                            border: "1px solid var(--border)",
+                            color: "var(--foreground)",
+                            fontSize: "12px",
+                            fontWeight: 600,
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <div className="w-32 sm:w-36 flex-shrink-0">
+                      <label style={{ color: "var(--muted-foreground)", fontSize: "10px", fontWeight: 600, display: "block", marginBottom: 4 }}>
+                        PAID BY
+                      </label>
+                      <select
+                        value={exp.paidBy ?? ""}
+                        onChange={(e) =>
+                          updateExpense(
+                            exp.id,
+                            "paidBy",
+                            e.target.value === "" ? null : parseInt(e.target.value, 10)
+                          )
+                        }
+                        className="w-full px-2 py-1.5 rounded-lg outline-none appearance-none"
+                        style={{
+                          background: exp.paidBy ? "#ECFDF5" : "#FEF2F2",
+                          border: `1px solid ${exp.paidBy ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.2)"}`,
+                          color: "var(--foreground)",
+                          fontSize: "12px",
+                        }}
+                      >
+                        <option value="">Unpaid</option>
+                        {selected.map((id) => {
+                          const r = roommates.find((rm) => rm.id === id);
+                          if (!r) return null;
+                          return (
+                            <option key={r.id} value={r.id}>
+                              {r.name.split(" ")[0]}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
                   </div>
+                  <p style={{ color: "var(--muted-foreground)", fontSize: "10px", marginTop: 6, marginBottom: 0 }}>
+                    Who already paid this expense upfront? Leave as Unpaid if nobody has paid yet.
+                  </p>
                   <ExpenseMemberSelector
                     roommates={selected.map((id) => roommates.find((r) => r.id === id)!).filter(Boolean)}
                     selectedIds={exp.sharedBy}
@@ -688,8 +711,8 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
                 {parkingSnapshot.assignments.map((a) => {
                   const member = roommates.find((r) => r.id === a.roommateId);
                   const shareLabel = formatParkingShareLabel(a, selected, roommates);
-                  const sharerCount = a.shareSpace ? selected.length : 1;
-                  const perPerson = sharerCount > 0 ? a.monthlyFee / sharerCount : 0;
+                  const sharers = getParkingShareMemberIds(a, selected);
+                  const perPerson = sharers.length > 0 ? a.monthlyFee / sharers.length : 0;
                   return (
                     <div
                       key={a.spotName}

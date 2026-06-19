@@ -83,12 +83,12 @@ function AddModal({ onClose, onAdd }: AddModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
       style={{ background: "rgba(15,13,42,0.65)", backdropFilter: "blur(6px)" }}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg rounded-3xl overflow-hidden"
+        className="w-full max-w-lg my-auto max-h-[90vh] flex flex-col rounded-3xl overflow-hidden"
         style={{
           background: "var(--card)",
           border: "1px solid var(--border)",
@@ -96,9 +96,9 @@ function AddModal({ onClose, onAdd }: AddModalProps) {
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
           <div
-            className="px-7 py-5 flex items-center justify-between"
+            className="px-7 py-5 flex items-center justify-between flex-shrink-0"
             style={{ borderBottom: "1px solid var(--border)", background: "var(--muted)" }}
           >
             <div>
@@ -119,7 +119,7 @@ function AddModal({ onClose, onAdd }: AddModalProps) {
             </button>
           </div>
 
-          <div className="px-7 py-6 space-y-4">
+          <div className="flex-1 overflow-y-auto px-7 py-6 space-y-4 min-h-0">
             <div>
               <label
                 style={{
@@ -280,7 +280,7 @@ function AddModal({ onClose, onAdd }: AddModalProps) {
             </div>
           </div>
 
-          <div className="px-7 py-5 flex gap-3" style={{ borderTop: "1px solid var(--border)" }}>
+          <div className="px-7 py-5 flex gap-3 flex-shrink-0" style={{ borderTop: "1px solid var(--border)", background: "var(--card)" }}>
             <button
               type="button"
               onClick={onClose}
@@ -338,20 +338,20 @@ function EditModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
       style={{ background: "rgba(15,13,42,0.65)", backdropFilter: "blur(6px)" }}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg rounded-3xl overflow-hidden"
+        className="w-full max-w-lg my-auto max-h-[90vh] flex flex-col rounded-3xl overflow-hidden"
         style={{ background: "var(--card)", border: "1px solid var(--border)", boxShadow: "0 32px 80px rgba(79,70,229,0.25)" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-7 py-5 flex items-center justify-between" style={{ borderBottom: "1px solid var(--border)", background: "var(--muted)" }}>
+        <div className="px-7 py-5 flex items-center justify-between flex-shrink-0" style={{ borderBottom: "1px solid var(--border)", background: "var(--muted)" }}>
           <h2 style={{ color: "var(--foreground)", fontWeight: 700, fontSize: "18px" }}>Edit Roommate</h2>
           <button type="button" onClick={onClose}><X size={15} /></button>
         </div>
-        <div className="px-7 py-6 space-y-4">
+        <div className="flex-1 overflow-y-auto px-7 py-6 space-y-4 min-h-0">
           {[
             { label: "Full Name", value: name, set: setName },
             { label: "Room", value: room, set: setRoom },
@@ -442,17 +442,17 @@ function ViewModal({ roommate, onClose }: { roommate: Roommate; onClose: () => v
   const ps = payStyle[roommate.payStatus];
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
       style={{ background: "rgba(15,13,42,0.65)", backdropFilter: "blur(6px)" }}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-3xl overflow-hidden"
+        className="w-full max-w-md my-auto max-h-[90vh] flex flex-col rounded-3xl overflow-hidden"
         style={{ background: "var(--card)", border: "1px solid var(--border)", boxShadow: "0 32px 80px rgba(79,70,229,0.25)" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="h-2" style={{ background: roommate.avatarGrad }} />
-        <div className="p-7 text-center">
+        <div className="h-2 flex-shrink-0" style={{ background: roommate.avatarGrad }} />
+        <div className="flex-1 overflow-y-auto p-7 text-center min-h-0">
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white font-bold text-xl mx-auto mb-4" style={{ background: roommate.avatarGrad }}>
             {roommate.initials}
           </div>
@@ -479,7 +479,9 @@ function ViewModal({ roommate, onClose }: { roommate: Roommate; onClose: () => v
               <span className="px-2 py-0.5 rounded-full font-semibold" style={{ background: ps.bg, color: ps.text, fontSize: "11px" }}>{roommate.payStatus}</span>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="mt-6 w-full py-2.5 rounded-xl font-semibold text-white" style={{ background: "linear-gradient(135deg, #4F46E5, #7C3AED)", fontSize: "13px" }}>
+        </div>
+        <div className="p-5 flex-shrink-0" style={{ borderTop: "1px solid var(--border)" }}>
+          <button type="button" onClick={onClose} className="w-full py-2.5 rounded-xl font-semibold text-white" style={{ background: "linear-gradient(135deg, #4F46E5, #7C3AED)", fontSize: "13px" }}>
             Close
           </button>
         </div>

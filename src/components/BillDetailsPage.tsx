@@ -13,14 +13,13 @@ import {
 import { useApp } from "@/context/AppContext";
 import { BillDetailModal, copyBillLink } from "@/components/BillDetailModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { calcCollectionSummary } from "@/lib/utils";
+import { calcCollectionSummary, getShareLink } from "@/lib/utils";
 
 interface BillDetailsPageProps {
   onBack?: () => void;
-  onShareView?: () => void;
 }
 
-export function BillDetailsPage({ onBack, onShareView }: BillDetailsPageProps) {
+export function BillDetailsPage({ onBack }: BillDetailsPageProps) {
   const {
     bills,
     setActiveBillId,
@@ -44,6 +43,11 @@ export function BillDetailsPage({ onBack, onShareView }: BillDetailsPageProps) {
   const openBill = (billId: string) => {
     void setActiveBillId(billId);
     setDetailBillId(billId);
+  };
+
+  const openPublicLink = async (billId: string) => {
+    const link = await getShareLink(billId);
+    window.open(link, "_blank", "noopener,noreferrer");
   };
 
   const copyLink = async (billId: string) => {
@@ -193,7 +197,7 @@ export function BillDetailsPage({ onBack, onShareView }: BillDetailsPageProps) {
                   { icon: Edit2, label: "Edit", action: () => handleEdit(bill) },
                   { icon: Copy, label: "Copy", action: () => void duplicateBill(bill.id) },
                   { icon: Check, label: "Paid", action: () => void markBillComplete(bill.id) },
-                  { icon: ExternalLink, label: "View", action: () => { openBill(bill.id); onShareView?.(); } },
+                  { icon: ExternalLink, label: "View", action: () => openPublicLink(bill.id) },
                   { icon: Trash2, label: "Delete", action: () => setDeleteTarget({ id: bill.id, title: displayTitle }) },
                 ].map(({ icon: Icon, label, action, active }) => (
                   <button
@@ -223,10 +227,13 @@ export function BillDetailsPage({ onBack, onShareView }: BillDetailsPageProps) {
       <BillDetailModal
         bill={detailBill}
         onClose={() => setDetailBillId(null)}
-        onShareView={onShareView ? () => { setDetailBillId(null); onShareView(); } : undefined}
         onEdit={detailBill ? () => handleEdit(detailBill) : undefined}
-        linkCopied={detailBill ? linkCopied === detailBill.id : false}
         onCopyLink={detailBill ? () => copyLink(detailBill.id) : undefined}
+        onOpenPublicLink={detailBill ? () => openPublicLink(detailBill.id) : undefined}
+        onDuplicate={detailBill ? () => void duplicateBill(detailBill.id) : undefined}
+        onMarkPaid={detailBill ? () => void markBillComplete(detailBill.id) : undefined}
+        onDelete={detailBill ? () => setDeleteTarget({ id: detailBill.id, title: detailBill.title || detailBill.month }) : undefined}
+        linkCopied={detailBill ? linkCopied === detailBill.id : false}
       />
 
       <ConfirmDialog

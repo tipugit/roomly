@@ -328,7 +328,7 @@ export function Layout({ children, activePage }: LayoutProps) {
                   {[
                     { label: "View Profile", action: () => navigate("settings") },
                     { label: "Preferences", action: () => navigate("settings") },
-                    { label: "Help & Support", action: () => showToast("Email support@roomly.app", "info") },
+                    { label: "Help & Support", action: () => showToast("Email hello@otipu.com", "info") },
                     { label: "Sign out", action: () => logout(), color: "#EF4444" },
                   ].map(item => (
                     <button

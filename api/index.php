@@ -514,7 +514,15 @@ if ($route === 'share' && $method === 'POST') {
     $check->execute([$billId, $auth['house_id']]);
     if (!$check->fetch()) respond_error('Bill not found.', 404);
 
-    $token = bin2hex(random_bytes(4));
+    $chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    do {
+        $token = '';
+        for ($i = 0; $i < 6; $i++) {
+            $token .= $chars[random_int(0, 61)];
+        }
+        $exists = $db->prepare('SELECT 1 FROM share_tokens WHERE token = ?');
+        $exists->execute([$token]);
+    } while ($exists->fetch());
     $db->prepare('INSERT INTO share_tokens (token, bill_id, house_id) VALUES (?, ?, ?)')->execute([$token, $billId, $auth['house_id']]);
 
     insert_activity($db, $auth['house_id'], 'Link2', 'Share link generated', 'Bill shared publicly', '#EC4899', '#FDF2F8');

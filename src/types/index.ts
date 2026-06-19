@@ -54,6 +54,7 @@ export interface ParkingAssignment {
   monthlyFee: number;
   active: boolean;
   shareSpace?: boolean;
+  sharedBy?: number[];
 }
 
 export interface ParkingAssignmentTemplate extends ParkingAssignment {
