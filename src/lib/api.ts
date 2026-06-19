@@ -92,6 +92,15 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  deleteBill: (billId: string) =>
+    request<{ ok: true; state: AppState }>(`bills/${billId}`, { method: "DELETE" }),
+
+  duplicateBill: (billId: string) =>
+    request<{ ok: true; state: AppState }>(`bills/${billId}/duplicate`, { method: "POST" }),
+
+  markBillComplete: (billId: string) =>
+    request<{ ok: true; state: AppState }>(`bills/${billId}/complete`, { method: "PUT" }),
+
   setActiveBill: (activeBillId: string | null) =>
     request<{ ok: true }>("bills/active", {
       method: "PUT",

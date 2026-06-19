@@ -12,8 +12,10 @@ import { ExpenseMemberSelector } from "@/components/ExpenseMemberSelector";
 import type { Expense } from "@/types";
 import {
   buildParkingSnapshotFromSettings,
+  buildMemberShareBreakdown,
   buildRoommateShares,
   calcCollectionSummary,
+  formatAmount,
 } from "@/lib/utils";
 
 const expenseCategories = [
@@ -39,6 +41,7 @@ const monthOptions = [
   "October 2026",
   "November 2026",
   "December 2026",
+  "Extra Bill",
 ];
 
 interface FormExpense {
@@ -93,6 +96,8 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
   const defaultPaidBy = roommates[0]?.id ?? 1;
 
   const [month, setMonth] = useState("June 2026");
+  const [extraBillMonth, setExtraBillMonth] = useState("June 2026");
+  const isExtraBill = month === "Extra Bill";
   const [houseName, setHouseName] = useState(settings.houseName);
   const [rent, setRent] = useState("3000");
   const [expenses, setExpenses] = useState<FormExpense[]>([
@@ -148,18 +153,22 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
     sharedBy: e.shareMode === "selected" ? e.sharedBy : undefined,
   }));
 
+  const roundUp = settings.roundUpAmounts ?? false;
+  const billMonth = isExtraBill ? `Extra Bill — ${extraBillMonth}` : month;
+
   const roommateShares = buildRoommateShares(
     roommates,
     selected,
     rentNum,
     parsedExpenses,
     undefined,
-    parkingSnapshot
+    parkingSnapshot,
+    roundUp
   );
 
   const previewBill = {
     id: "preview",
-    month,
+    month: billMonth,
     houseName,
     rent: rentNum,
     expenses: parsedExpenses,
@@ -174,7 +183,15 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
   const breakdown = roommateShares.map((rs) => {
     const r = roommates.find((rm) => rm.id === rs.roommateId)!;
     const owes = rs.share - rs.paid;
-    return { ...r, paid: rs.paid, owes, share: rs.share };
+    const calc = buildMemberShareBreakdown(
+      rs.roommateId,
+      selected,
+      rentNum,
+      parsedExpenses,
+      parkingSnapshot,
+      roundUp
+    );
+    return { ...r, paid: rs.paid, owes, share: rs.share, calc };
   });
 
   const handleCreate = async () => {
@@ -196,7 +213,7 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
     }
 
     await createBill({
-      month,
+      month: billMonth,
       houseName: houseName.trim(),
       rent: rentNum,
       expenses: parsedExpenses,
@@ -204,6 +221,7 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
       announcementTitle: announcementTitle.trim(),
       announcementMessage: announcementMessage.trim(),
       parkingSnapshot,
+      isExtraBill,
     });
 
     setSaved(true);
@@ -273,6 +291,41 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
                   ))}
                 </select>
               </div>
+              {isExtraBill && (
+                <div className="col-span-2">
+                  <label
+                    style={{
+                      color: "var(--foreground)",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      display: "block",
+                      marginBottom: 6,
+                    }}
+                  >
+                    Bill Month (creation date)
+                  </label>
+                  <select
+                    value={extraBillMonth}
+                    onChange={(e) => setExtraBillMonth(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl outline-none appearance-none"
+                    style={{
+                      background: "var(--muted)",
+                      border: "1.5px solid var(--border)",
+                      color: "var(--foreground)",
+                      fontSize: "13px",
+                    }}
+                  >
+                    {monthOptions.filter((m) => m !== "Extra Bill").map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                  <p style={{ color: "var(--muted-foreground)", fontSize: "11px", marginTop: 6 }}>
+                    Extra bills are one-off charges outside the regular monthly cycle.
+                  </p>
+                </div>
+              )}
               <div>
                 <label
                   style={{
@@ -637,9 +690,9 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
           </SectionCard>
         </div>
 
-        <div className="space-y-4">
+        <div className="lg:col-span-1 space-y-4 lg:sticky lg:top-4 lg:self-start">
           <div
-            className="rounded-2xl overflow-hidden sticky top-0"
+            className="rounded-2xl overflow-hidden"
             style={{
               background: "linear-gradient(160deg, #1E1B4B 0%, #312E81 50%, #1E3A5F 100%)",
               boxShadow: "0 20px 60px rgba(79,70,229,0.35)",
@@ -668,7 +721,8 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
                 ${grandTotal.toLocaleString()}
               </div>
               <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "12px" }}>
-                {month} · {selected.length} roommates
+                {billMonth} · {selected.length} roommates
+                {roundUp && " · rounded up"}
               </div>
             </div>
 
@@ -795,6 +849,11 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
                     >
                       {r.name.split(" ")[0]}
                     </div>
+                    <div style={{ color: "var(--muted-foreground)", fontSize: "10px", marginTop: 2 }}>
+                      Rent {formatAmount(r.calc.rentShare, roundUp)}
+                      {r.calc.expenseShare > 0 && ` + Exp ${formatAmount(r.calc.expenseShare, roundUp)}`}
+                      {r.calc.parkingShare > 0 && ` + Parking ${formatAmount(r.calc.parkingShare, roundUp)}`}
+                    </div>
                     {r.paid > 0 && (
                       <div style={{ color: "#10B981", fontSize: "10px" }}>
                         Advanced ${r.paid}
@@ -802,17 +861,20 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
                     )}
                   </div>
                   <div
-                    className="px-2.5 py-1 rounded-lg font-bold text-xs"
+                    className="px-2.5 py-1 rounded-lg font-bold text-xs text-right"
                     style={{
                       background: r.owes > 0 ? "#FEF2F2" : "#ECFDF5",
                       color: r.owes > 0 ? "#EF4444" : "#10B981",
                     }}
                   >
-                    {r.owes > 0
-                      ? `Owes $${r.owes.toFixed(0)}`
-                      : r.owes < 0
-                        ? `Gets $${Math.abs(r.owes).toFixed(0)}`
-                        : "Settled"}
+                    <div>{formatAmount(r.share, roundUp)}</div>
+                    <div style={{ fontSize: "9px", fontWeight: 500, opacity: 0.85 }}>
+                      {r.owes > 0
+                        ? `Owes ${formatAmount(r.owes, roundUp)}`
+                        : r.owes < 0
+                          ? `Gets ${formatAmount(Math.abs(r.owes), roundUp)}`
+                          : "Settled"}
+                    </div>
                   </div>
                 </div>
               ))}

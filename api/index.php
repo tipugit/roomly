@@ -229,6 +229,7 @@ if ($route === 'bills' && $method === 'POST') {
     $announcementTitle = trim($body['announcementTitle'] ?? '');
     $announcementMessage = trim($body['announcementMessage'] ?? '');
     $parkingSnapshot = $body['parkingSnapshot'] ?? null;
+    $isExtraBill = !empty($body['isExtraBill']);
 
     if (!is_array($expenses) || !is_array($selected) || !is_array($shares)) {
         respond_error('Invalid bill payload.');
@@ -311,6 +312,98 @@ if ($route === 'bills' && $method === 'POST') {
         }
     }
     respond(['ok' => true, 'bill' => $bill, 'state' => $state]);
+}
+
+if (preg_match('#^bills/([^/]+)/duplicate$#', $route, $m) && $method === 'POST') {
+    $auth = require_auth();
+    $sourceId = $m[1];
+    $check = $db->prepare('SELECT * FROM bills WHERE id = ? AND house_id = ?');
+    $check->execute([$sourceId, $auth['house_id']]);
+    $source = $check->fetch();
+    if (!$source) respond_error('Bill not found.', 404);
+
+    $newId = 'bill-' . time() . '-' . bin2hex(random_bytes(4));
+    $db->beginTransaction();
+    try {
+        $db->prepare(
+            'INSERT INTO bills (id, house_id, month_label, house_name, rent, selected_roommate_ids, announcement_title, announcement_message, parking_snapshot) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        )->execute([
+            $newId,
+            $auth['house_id'],
+            $source['month_label'] . ' (Copy)',
+            $source['house_name'],
+            $source['rent'],
+            $source['selected_roommate_ids'],
+            $source['announcement_title'],
+            $source['announcement_message'],
+            $source['parking_snapshot'],
+        ]);
+
+        $expStmt = $db->prepare('SELECT * FROM bill_expenses WHERE bill_id = ?');
+        $expStmt->execute([$sourceId]);
+        foreach ($expStmt->fetchAll() as $e) {
+            $db->prepare(
+                'INSERT INTO bill_expenses (bill_id, name, amount, category, paid_by, note, icon, share_mode, shared_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            )->execute([
+                $newId, $e['name'], $e['amount'], $e['category'], $e['paid_by'],
+                $e['note'], $e['icon'], $e['share_mode'], $e['shared_by'],
+            ]);
+        }
+
+        $shareStmt = $db->prepare('SELECT * FROM bill_shares WHERE bill_id = ?');
+        $shareStmt->execute([$sourceId]);
+        foreach ($shareStmt->fetchAll() as $s) {
+            $db->prepare(
+                'INSERT INTO bill_shares (bill_id, roommate_id, share_amount, paid_amount, status) VALUES (?, ?, ?, 0, ?)'
+            )->execute([$newId, $s['roommate_id'], $s['share_amount'], 'Pending']);
+        }
+
+        $db->prepare('UPDATE houses SET active_bill_id = ? WHERE id = ?')->execute([$newId, $auth['house_id']]);
+        insert_activity($db, $auth['house_id'], 'FileText', 'Bill duplicated', $source['month_label'] . ' copied', '#4F46E5', '#EEF2FF');
+        $db->commit();
+    } catch (Throwable $e) {
+        $db->rollBack();
+        respond_error('Failed to duplicate bill.', 500);
+    }
+    respond(['ok' => true, 'state' => fetch_full_state($db, $auth['house_id'])]);
+}
+
+if (preg_match('#^bills/([^/]+)/complete$#', $route, $m) && $method === 'PUT') {
+    $auth = require_auth();
+    $billId = $m[1];
+    $check = $db->prepare('SELECT id FROM bills WHERE id = ? AND house_id = ?');
+    $check->execute([$billId, $auth['house_id']]);
+    if (!$check->fetch()) respond_error('Bill not found.', 404);
+
+    $db->prepare(
+        'UPDATE bill_shares SET paid_amount = share_amount, status = ? WHERE bill_id = ?'
+    )->execute(['Paid', $billId]);
+
+    insert_activity($db, $auth['house_id'], 'CheckCircle2', 'Bill completed', 'All payments marked paid', '#10B981', '#ECFDF5');
+    respond(['ok' => true, 'state' => fetch_full_state($db, $auth['house_id'])]);
+}
+
+if (preg_match('#^bills/([^/]+)$#', $route, $m) && $method === 'DELETE') {
+    $auth = require_auth();
+    $billId = $m[1];
+    $check = $db->prepare('SELECT id FROM bills WHERE id = ? AND house_id = ?');
+    $check->execute([$billId, $auth['house_id']]);
+    if (!$check->fetch()) respond_error('Bill not found.', 404);
+
+    $db->beginTransaction();
+    try {
+        $db->prepare('DELETE FROM share_tokens WHERE bill_id = ?')->execute([$billId]);
+        $db->prepare('DELETE FROM bill_shares WHERE bill_id = ?')->execute([$billId]);
+        $db->prepare('DELETE FROM bill_expenses WHERE bill_id = ?')->execute([$billId]);
+        $db->prepare('DELETE FROM bills WHERE id = ? AND house_id = ?')->execute([$billId, $auth['house_id']]);
+        $db->prepare('UPDATE houses SET active_bill_id = NULL WHERE id = ? AND active_bill_id = ?')->execute([$auth['house_id'], $billId]);
+        $db->commit();
+    } catch (Throwable $e) {
+        $db->rollBack();
+        respond_error('Failed to delete bill.', 500);
+    }
+    insert_activity($db, $auth['house_id'], 'Trash2', 'Bill deleted', 'A bill was removed', '#EF4444', '#FEF2F2');
+    respond(['ok' => true, 'state' => fetch_full_state($db, $auth['house_id'])]);
 }
 
 if ($route === 'bills/active' && $method === 'PUT') {
@@ -415,7 +508,7 @@ if ($route === 'share' && $method === 'POST') {
     $check->execute([$billId, $auth['house_id']]);
     if (!$check->fetch()) respond_error('Bill not found.', 404);
 
-    $token = bin2hex(random_bytes(16));
+    $token = bin2hex(random_bytes(4));
     $db->prepare('INSERT INTO share_tokens (token, bill_id, house_id) VALUES (?, ?, ?)')->execute([$token, $billId, $auth['house_id']]);
 
     insert_activity($db, $auth['house_id'], 'Link2', 'Share link generated', 'Bill shared publicly', '#EC4899', '#FDF2F8');

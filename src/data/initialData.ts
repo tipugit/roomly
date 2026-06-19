@@ -115,9 +115,10 @@ const demoSettings = {
   parkingTotalSpots: 2,
   parkingIncludedInRent: true,
   parkingAssignments: [
-    { id: 1, spotName: "Spot A", roommateId: 1, monthlyFee: 100, active: true },
-    { id: 2, spotName: "Spot B", roommateId: 3, monthlyFee: 150, active: true },
+    { id: 1, spotName: "Spot A", roommateId: 1, monthlyFee: 100, active: true, shareSpace: false },
+    { id: 2, spotName: "Spot B", roommateId: 3, monthlyFee: 150, active: true, shareSpace: false },
   ],
+  roundUpAmounts: false,
 };
 
 const parkingSnapshot = buildParkingSnapshotFromSettings(demoSettings);

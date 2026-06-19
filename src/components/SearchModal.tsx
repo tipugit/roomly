@@ -16,7 +16,7 @@ const pages: { id: Page; label: string; icon: typeof LayoutDashboard; keywords: 
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, keywords: ["home", "overview"] },
   { id: "roommates", label: "Roommates", icon: Users, keywords: ["people", "tenants"] },
   { id: "bills", label: "Create Bill", icon: FileText, keywords: ["new bill", "expenses"] },
-  { id: "expenses", label: "Bill Details", icon: Receipt, keywords: ["bill", "payments"] },
+  { id: "expenses", label: "All Bills", icon: Receipt, keywords: ["bill", "payments"] },
   { id: "analytics", label: "Analytics", icon: BarChart3, keywords: ["charts", "reports"] },
   { id: "settings", label: "Settings", icon: Settings, keywords: ["preferences", "config"] },
 ];

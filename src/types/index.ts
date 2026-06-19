@@ -51,6 +51,7 @@ export interface ParkingAssignment {
   roommateId: number | null;
   monthlyFee: number;
   active: boolean;
+  shareSpace?: boolean;
 }
 
 export interface ParkingAssignmentTemplate extends ParkingAssignment {
@@ -82,6 +83,8 @@ export interface Bill {
   announcementTitle?: string;
   announcementMessage?: string;
   parkingSnapshot?: ParkingSnapshot | null;
+  isExtraBill?: boolean;
+  completed?: boolean;
 }
 
 export interface Settings {
@@ -112,6 +115,7 @@ export interface Settings {
   parkingTotalSpots: number;
   parkingIncludedInRent: boolean;
   parkingAssignments: ParkingAssignmentTemplate[];
+  roundUpAmounts: boolean;
 }
 
 export interface Activity {

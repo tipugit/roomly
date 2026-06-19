@@ -40,7 +40,7 @@ function AppContent() {
                     window.location.hash = "#/";
                   }
                 }
-              : () => { setPage("expenses"); showToast("Returned to Bill Details"); }
+              : () => { setPage("expenses"); }
           }
         />
         <ToastStack />
@@ -73,7 +73,7 @@ function AppContent() {
   return (
     <>
       <Layout activePage={sidebarActive}>
-        {renderPage()}
+        <div key={page}>{renderPage()}</div>
       </Layout>
       <ToastStack />
       <SearchModal />

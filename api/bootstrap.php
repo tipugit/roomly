@@ -97,6 +97,7 @@ function default_settings(string $name, string $email): array
         'parkingTotalSpots' => 0,
         'parkingIncludedInRent' => false,
         'parkingAssignments' => [],
+        'roundUpAmounts' => false,
     ];
 }
 
@@ -227,6 +228,14 @@ function fetch_full_state(PDO $db, int $houseId): array
             $parkingSnapshot = null;
         }
 
+        $allPaid = count($roommateShares) > 0;
+        foreach ($roommateShares as $rs) {
+            if ($rs['status'] !== 'Paid') {
+                $allPaid = false;
+                break;
+            }
+        }
+
         $bills[] = [
             'id' => $billId,
             'month' => $billRow['month_label'],
@@ -239,6 +248,8 @@ function fetch_full_state(PDO $db, int $houseId): array
             'announcementTitle' => $billRow['announcement_title'] ?? '',
             'announcementMessage' => $billRow['announcement_message'] ?? '',
             'parkingSnapshot' => $parkingSnapshot,
+            'isExtraBill' => str_starts_with($billRow['month_label'], 'Extra Bill'),
+            'completed' => $allPaid,
         ];
     }
 

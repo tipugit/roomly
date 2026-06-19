@@ -73,7 +73,7 @@ export function parseHashRoute(): { page: string; shareData: string | null; shar
 
   if (hash.startsWith("/share/")) {
     const data = hash.slice("/share/".length);
-    if (/^[a-f0-9]{32}$/i.test(data)) {
+    if (/^[a-zA-Z0-9]{6,32}$/.test(data) && !data.includes(".") && data.length < 40) {
       return { page: "shared-bill", shareData: null, shareToken: data };
     }
     return { page: "shared-bill", shareData: data, shareToken: null };
@@ -93,6 +93,8 @@ export function setHashRoute(page: string) {
   const normalized = page === "bill-details" ? "expenses" : page;
   const next = `#/${normalized}`;
   if (window.location.hash !== next) {
-    window.history.replaceState(null, "", next);
+    const url = `${window.location.pathname}${window.location.search}${next}`;
+    window.history.replaceState(null, "", url);
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
   }
 }

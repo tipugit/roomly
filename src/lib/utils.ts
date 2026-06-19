@@ -53,8 +53,65 @@ export interface CollectionSummary {
   outstanding: number;
 }
 
-export function roundMoney(amount: number) {
+export function roundMoney(amount: number, roundUp = false) {
+  if (roundUp) return Math.ceil(amount);
   return Math.round(amount * 100) / 100;
+}
+
+export function formatAmount(amount: number, roundUp = false) {
+  const value = roundUp ? Math.ceil(amount) : roundMoney(amount);
+  return roundUp
+    ? `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+    : formatCurrencyDetailed(value);
+}
+
+export interface MemberShareBreakdown {
+  rentShare: number;
+  expenseShare: number;
+  parkingShare: number;
+  total: number;
+}
+
+export function buildMemberShareBreakdown(
+  roommateId: number,
+  selectedIds: number[],
+  rent: number,
+  expenses: Expense[],
+  parking?: ParkingSnapshot | null,
+  roundUp = false
+): MemberShareBreakdown {
+  const activeParking = getActiveParkingAssignments(parking, selectedIds);
+  const totalParkingFees = activeParking.reduce((sum, a) => sum + a.monthlyFee, 0);
+  const parkingIncluded = parking?.parkingIncludedInRent ?? false;
+  const rentForSharing = parkingIncluded ? rent - totalParkingFees : rent;
+  const rentShare = selectedIds.length > 0 ? rentForSharing / selectedIds.length : 0;
+
+  let expenseShare = 0;
+  for (const expense of expenses) {
+    const sharers = getExpenseSharers(expense, selectedIds);
+    if (sharers.includes(roommateId) && sharers.length > 0) {
+      expenseShare += expense.amount / sharers.length;
+    }
+  }
+
+  let parkingShare = 0;
+  for (const assignment of activeParking) {
+    if (assignment.shareSpace) {
+      if (selectedIds.includes(roommateId)) {
+        parkingShare += assignment.monthlyFee / selectedIds.length;
+      }
+    } else if (assignment.roommateId === roommateId) {
+      parkingShare += assignment.monthlyFee;
+    }
+  }
+
+  const total = roundMoney(rentShare + expenseShare + parkingShare, roundUp);
+  return {
+    rentShare: roundMoney(rentShare, roundUp),
+    expenseShare: roundMoney(expenseShare, roundUp),
+    parkingShare: roundMoney(parkingShare, roundUp),
+    total,
+  };
 }
 
 export function getInitials(name: string) {
@@ -96,6 +153,7 @@ export function buildParkingSnapshotFromSettings(settings: Settings): ParkingSna
       roommateId: a.roommateId,
       monthlyFee: a.monthlyFee,
       active: a.active,
+      shareSpace: a.shareSpace ?? false,
     })),
   };
 }
@@ -172,42 +230,13 @@ export function buildRoommateShares(
   rent: number,
   expenses: Expense[],
   existing?: RoommateShare[],
-  parking?: ParkingSnapshot | null
+  parking?: ParkingSnapshot | null,
+  roundUp = false
 ): RoommateShare[] {
   if (selectedIds.length === 0) return [];
 
-  const activeParking = getActiveParkingAssignments(parking, selectedIds);
-  const totalParkingFees = activeParking.reduce((sum, a) => sum + a.monthlyFee, 0);
-  const parkingByMember = new Map<number, number>();
-  for (const assignment of activeParking) {
-    if (assignment.roommateId == null) continue;
-    parkingByMember.set(
-      assignment.roommateId,
-      (parkingByMember.get(assignment.roommateId) ?? 0) + assignment.monthlyFee
-    );
-  }
-
-  const parkingIncluded = parking?.parkingIncludedInRent ?? false;
-  const rentForSharing = parkingIncluded ? rent - totalParkingFees : rent;
-  const rentPerPerson = rentForSharing / selectedIds.length;
-
-  const expenseShareByMember = new Map<number, number>();
-  for (const id of selectedIds) expenseShareByMember.set(id, 0);
-
-  for (const expense of expenses) {
-    const sharers = getExpenseSharers(expense, selectedIds);
-    if (sharers.length === 0) continue;
-    const perShare = expense.amount / sharers.length;
-    for (const id of sharers) {
-      expenseShareByMember.set(id, (expenseShareByMember.get(id) ?? 0) + perShare);
-    }
-  }
-
   return selectedIds.map((id) => {
-    const parkingFee = parkingByMember.get(id) ?? 0;
-    const share = roundMoney(
-      rentPerPerson + (expenseShareByMember.get(id) ?? 0) + parkingFee
-    );
+    const breakdown = buildMemberShareBreakdown(id, selectedIds, rent, expenses, parking, roundUp);
     const paid = expenses
       .filter((e) => e.paidBy === id)
       .reduce((sum, e) => sum + e.amount, 0);
@@ -216,9 +245,9 @@ export function buildRoommateShares(
 
     return {
       roommateId: id,
-      share,
+      share: breakdown.total,
       paid: paidAmount,
-      status: getPayStatusFromAmount(paidAmount, share),
+      status: getPayStatusFromAmount(paidAmount, breakdown.total),
     };
   });
 }

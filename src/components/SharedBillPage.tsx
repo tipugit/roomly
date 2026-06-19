@@ -165,7 +165,14 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
               Back
             </button>
           )}
-          <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => {
+              if (onBack) onBack();
+              else window.location.hash = "#/";
+            }}
+            className="flex items-center gap-2.5 transition-opacity hover:opacity-80"
+          >
             <div
               className="w-8 h-8 rounded-xl flex items-center justify-center"
               style={{ background: "linear-gradient(135deg, #4F46E5, #7C3AED)", boxShadow: "0 2px 8px rgba(79,70,229,0.3)" }}
@@ -176,7 +183,7 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
               <span style={{ fontWeight: 800, color: "#0F0D2A", fontSize: "15px" }}>Roomly</span>
               <span style={{ color: "#94A3B8", fontSize: "12px", marginLeft: 6 }}>Shared Bill</span>
             </div>
-          </div>
+          </button>
         </div>
         <div className="flex items-center gap-2">
           <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl" style={{ background: "#ECFDF5" }}>

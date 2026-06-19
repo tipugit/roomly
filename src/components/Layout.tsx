@@ -11,7 +11,7 @@ const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", id: "dashboard", badgeKey: null as string | null },
   { icon: Users, label: "Roommates", id: "roommates", badgeKey: "roommates" },
   { icon: FileText, label: "Create Bill", id: "bills", badgeKey: null },
-  { icon: Receipt, label: "Bill Details", id: "expenses", badgeKey: "pending" },
+  { icon: Receipt, label: "All Bills", id: "expenses", badgeKey: "pending" },
   { icon: BarChart3, label: "Analytics", id: "analytics", badgeKey: null },
   { icon: Settings, label: "Settings", id: "settings", badgeKey: null },
 ];
@@ -20,7 +20,7 @@ const mobileNavItems = [
   { icon: LayoutDashboard, label: "Dashboard", id: "dashboard" },
   { icon: Users, label: "Roommates", id: "roommates" },
   { icon: FileText, label: "Bills", id: "bills" },
-  { icon: Receipt, label: "Expenses", id: "expenses" },
+  { icon: Receipt, label: "All Bills", id: "expenses" },
   { icon: BarChart3, label: "Analytics", id: "analytics" },
 ];
 
@@ -80,7 +80,12 @@ export function Layout({ children, activePage }: LayoutProps) {
           boxShadow: "6px 0 32px rgba(79,70,229,0.07)",
         }}
       >
-        <div className="flex items-center gap-3 px-5 py-5" style={{ borderBottom: "1px solid var(--sidebar-border)" }}>
+        <button
+          type="button"
+          onClick={() => { navigate("dashboard"); setSidebarOpen(false); }}
+          className="flex items-center gap-3 px-5 py-5 w-full text-left transition-opacity hover:opacity-90"
+          style={{ borderBottom: "1px solid var(--sidebar-border)" }}
+        >
           <div
             className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ background: "linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)", boxShadow: "0 4px 12px rgba(79,70,229,0.4)" }}
@@ -91,10 +96,10 @@ export function Layout({ children, activePage }: LayoutProps) {
             <div style={{ color: "var(--foreground)", fontWeight: 700, fontSize: "16px", letterSpacing: "-0.3px" }}>Roomly</div>
             <div style={{ color: "var(--muted-foreground)", fontSize: "10px", letterSpacing: "0.5px" }}>MANAGEMENT SYSTEM</div>
           </div>
-          <button className="lg:hidden p-1" onClick={() => setSidebarOpen(false)}>
+          <button type="button" className="lg:hidden p-1" onClick={(e) => { e.stopPropagation(); setSidebarOpen(false); }}>
             <X size={16} style={{ color: "var(--muted-foreground)" }} />
           </button>
-        </div>
+        </button>
 
         <div className="px-4 py-4">
           <button
@@ -212,12 +217,16 @@ export function Layout({ children, activePage }: LayoutProps) {
             <Menu size={17} style={{ color: "var(--foreground)" }} />
           </button>
 
-          <div className="flex items-center gap-2 lg:hidden flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => navigate("dashboard")}
+            className="flex items-center gap-2 lg:hidden flex-shrink-0"
+          >
             <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "linear-gradient(135deg, #4F46E5, #7C3AED)" }}>
               <Home size={13} className="text-white" />
             </div>
             <span style={{ color: "var(--foreground)", fontWeight: 700, fontSize: "15px" }}>Roomly</span>
-          </div>
+          </button>
 
           <div
             className="hidden sm:flex items-center gap-2.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl flex-1 max-w-sm transition-all cursor-pointer"

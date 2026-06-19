@@ -123,6 +123,87 @@ function SettingRow({
   );
 }
 
+function SettingsInputField({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options?: string[];
+}) {
+  return (
+    <div>
+      <label
+        style={{
+          color: "var(--foreground)",
+          fontSize: "12px",
+          fontWeight: 600,
+          display: "block",
+          marginBottom: 6,
+        }}
+      >
+        {label}
+      </label>
+      {options ? (
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full px-4 py-2.5 rounded-xl outline-none appearance-none"
+          style={{
+            background: "var(--muted)",
+            border: "1.5px solid var(--border)",
+            color: "var(--foreground)",
+            fontSize: "13px",
+          }}
+        >
+          {options.map((o) => (
+            <option key={o}>{o}</option>
+          ))}
+        </select>
+      ) : (
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full px-4 py-2.5 rounded-xl outline-none"
+          style={{
+            background: "var(--muted)",
+            border: "1.5px solid var(--border)",
+            color: "var(--foreground)",
+            fontSize: "13px",
+          }}
+          onFocus={(e) => (e.target.style.borderColor = "#4F46E5")}
+          onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+        />
+      )}
+    </div>
+  );
+}
+
+function syncParkingAssignments(
+  assignments: ParkingAssignmentTemplate[],
+  totalSpots: number,
+  roommates: { id: number }[]
+): ParkingAssignmentTemplate[] {
+  const next = [...assignments];
+  while (next.length < totalSpots) {
+    const spotNum = next.length + 1;
+    const nextId = Math.max(0, ...next.map((a) => a.id)) + 1;
+    next.push({
+      id: nextId,
+      spotName: `Spot ${String.fromCharCode(64 + spotNum)}`,
+      roommateId: roommates[0]?.id ?? null,
+      monthlyFee: 0,
+      active: true,
+      shareSpace: false,
+    });
+  }
+  return next.slice(0, totalSpots);
+}
+
 export function SettingsPage() {
   const { settings, updateSettings, showToast, exportData, importData, resetApp, roommates } = useApp();
   const [active, setActive] = useState<SectionId>("general");
@@ -131,10 +212,21 @@ export function SettingsPage() {
   const [localState, setLocalState] = useState<Settings>(settings);
   const [passwordForm, setPasswordForm] = useState({ current: "", next: "", confirm: "" });
   const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [feeDrafts, setFeeDrafts] = useState<Record<number, string>>({});
 
   useEffect(() => {
-    setLocalState(settings);
-  }, [settings]);
+    setLocalState({
+      ...settings,
+      parkingAssignments:
+        settings.parkingAssignments.length >= settings.parkingTotalSpots
+          ? settings.parkingAssignments
+          : syncParkingAssignments(
+              settings.parkingAssignments,
+              settings.parkingTotalSpots,
+              roommates
+            ),
+    });
+  }, [settings, roommates]);
 
   const toggle = (k: keyof Settings) => {
     if (typeof localState[k] === "boolean") {
@@ -158,86 +250,44 @@ export function SettingsPage() {
   };
 
   const addParkingSpot = () => {
+    if (localState.parkingAssignments.length >= localState.parkingTotalSpots) return;
+    const nextNum = localState.parkingAssignments.length + 1;
     const nextId = Math.max(0, ...localState.parkingAssignments.map((a) => a.id)) + 1;
-    const spotNum = localState.parkingAssignments.length + 1;
     setLocalState((prev) => ({
       ...prev,
-      parkingTotalSpots: Math.max(prev.parkingTotalSpots, spotNum),
       parkingAssignments: [
         ...prev.parkingAssignments,
         {
           id: nextId,
-          spotName: `Spot ${String.fromCharCode(64 + spotNum)}`,
+          spotName: `Spot ${String.fromCharCode(64 + nextNum)}`,
           roommateId: roommates[0]?.id ?? null,
           monthlyFee: 0,
           active: true,
+          shareSpace: false,
         },
       ],
     }));
   };
 
   const removeParkingSpot = (id: number) => {
-    setLocalState((prev) => ({
-      ...prev,
-      parkingAssignments: prev.parkingAssignments.filter((a) => a.id !== id),
-    }));
+    setLocalState((prev) => {
+      const filtered = prev.parkingAssignments.filter((a) => a.id !== id);
+      return {
+        ...prev,
+        parkingTotalSpots: Math.max(0, prev.parkingTotalSpots - 1),
+        parkingAssignments: syncParkingAssignments(filtered, Math.max(0, prev.parkingTotalSpots - 1), roommates),
+      };
+    });
   };
 
-  const InputField = ({
-    label,
-    k,
-    options,
-  }: {
-    label: string;
-    k: keyof Settings;
-    options?: string[];
-  }) => (
-    <div>
-      <label
-        style={{
-          color: "var(--foreground)",
-          fontSize: "12px",
-          fontWeight: 600,
-          display: "block",
-          marginBottom: 6,
-        }}
-      >
-        {label}
-      </label>
-      {options ? (
-        <select
-          value={localState[k] as string}
-          onChange={(e) => setLocalState((prev) => ({ ...prev, [k]: e.target.value }))}
-          className="w-full px-4 py-2.5 rounded-xl outline-none appearance-none"
-          style={{
-            background: "var(--muted)",
-            border: "1.5px solid var(--border)",
-            color: "var(--foreground)",
-            fontSize: "13px",
-          }}
-        >
-          {options.map((o) => (
-            <option key={o}>{o}</option>
-          ))}
-        </select>
-      ) : (
-        <input
-          type="text"
-          value={localState[k] as string}
-          onChange={(e) => setLocalState((prev) => ({ ...prev, [k]: e.target.value }))}
-          className="w-full px-4 py-2.5 rounded-xl outline-none"
-          style={{
-            background: "var(--muted)",
-            border: "1.5px solid var(--border)",
-            color: "var(--foreground)",
-            fontSize: "13px",
-          }}
-          onFocus={(e) => (e.target.style.borderColor = "#4F46E5")}
-          onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
-        />
-      )}
-    </div>
-  );
+  const setParkingTotalSpots = (spots: number) => {
+    const total = Math.max(0, spots);
+    setLocalState((prev) => ({
+      ...prev,
+      parkingTotalSpots: total,
+      parkingAssignments: syncParkingAssignments(prev.parkingAssignments, total, roommates),
+    }));
+  };
 
   const renderContent = () => {
     switch (active) {
@@ -246,17 +296,27 @@ export function SettingsPage() {
           <div className="space-y-5">
             <SectionCard title="House Information" desc="Details about your shared house">
               <div className="space-y-4">
-                <InputField label="House Name" k="houseName" />
-                <InputField label="Address" k="address" />
+                <SettingsInputField
+                  label="House Name"
+                  value={localState.houseName}
+                  onChange={(v) => setLocalState((prev) => ({ ...prev, houseName: v }))}
+                />
+                <SettingsInputField
+                  label="Address"
+                  value={localState.address}
+                  onChange={(v) => setLocalState((prev) => ({ ...prev, address: v }))}
+                />
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <InputField
+                  <SettingsInputField
                     label="Currency"
-                    k="currency"
+                    value={localState.currency}
+                    onChange={(v) => setLocalState((prev) => ({ ...prev, currency: v }))}
                     options={["USD", "EUR", "GBP", "BDT", "CAD", "AUD"]}
                   />
-                  <InputField
+                  <SettingsInputField
                     label="Timezone"
-                    k="timezone"
+                    value={localState.timezone}
+                    onChange={(v) => setLocalState((prev) => ({ ...prev, timezone: v }))}
                     options={[
                       "UTC-8 (PST)",
                       "UTC-5 (EST)",
@@ -265,9 +325,10 @@ export function SettingsPage() {
                       "UTC+5:30 (IST)",
                     ]}
                   />
-                  <InputField
+                  <SettingsInputField
                     label="Language"
-                    k="language"
+                    value={localState.language}
+                    onChange={(v) => setLocalState((prev) => ({ ...prev, language: v }))}
                     options={["English", "Spanish", "French", "German", "Bengali"]}
                   />
                 </div>
@@ -281,6 +342,19 @@ export function SettingsPage() {
                 color="#4F46E5"
               >
                 <Toggle on={localState.autoSplit} onToggle={() => toggle("autoSplit")} />
+              </SettingRow>
+              <SettingRow
+                icon={Globe}
+                label="Round up member amounts"
+                sub="When on, each member's share rounds up to the nearest dollar (e.g. $5.62 becomes $6)"
+                color="#8B5CF6"
+                last
+              >
+                <Toggle
+                  on={localState.roundUpAmounts}
+                  onToggle={() => toggle("roundUpAmounts")}
+                  color="#8B5CF6"
+                />
               </SettingRow>
               <SettingRow
                 icon={Globe}
@@ -331,7 +405,11 @@ export function SettingsPage() {
             desc="Appears on every monthly bill, public page, and PDF export (after monthly announcement)"
           >
             <div className="space-y-4">
-              <InputField label="Global Title" k="globalMessageTitle" />
+              <SettingsInputField
+                label="Global Title"
+                value={localState.globalMessageTitle}
+                onChange={(v) => setLocalState((prev) => ({ ...prev, globalMessageTitle: v }))}
+              />
               <div>
                 <label
                   style={{
@@ -385,12 +463,7 @@ export function SettingsPage() {
                     type="number"
                     min={0}
                     value={localState.parkingTotalSpots}
-                    onChange={(e) =>
-                      setLocalState((prev) => ({
-                        ...prev,
-                        parkingTotalSpots: parseInt(e.target.value, 10) || 0,
-                      }))
-                    }
+                    onChange={(e) => setParkingTotalSpots(parseInt(e.target.value, 10) || 0)}
                     className="w-full px-4 py-2.5 rounded-xl outline-none"
                     style={{
                       background: "var(--muted)",
@@ -432,16 +505,26 @@ export function SettingsPage() {
                       </button>
                     ))}
                   </div>
+                  <div className="mt-2 px-3 py-2 rounded-xl" style={{ background: "#ECFEFF" }}>
+                    <p style={{ color: "#0D9488", fontSize: "11px", lineHeight: 1.5 }}>
+                      {localState.parkingIncludedInRent
+                        ? "Parking fees are deducted from rent before splitting. Members won't see a separate parking charge."
+                        : "Parking fees are added on top of rent. Assigned members pay their spot fee separately."}
+                    </p>
+                  </div>
                 </div>
               </div>
             </SectionCard>
 
-            <SectionCard title="Parking Assignments" desc="Assign spots to members with monthly fees">
+            <SectionCard
+              title="Parking Assignments"
+              desc={`${localState.parkingAssignments.length} of ${localState.parkingTotalSpots} spots assigned`}
+            >
               <div className="overflow-x-auto mb-4" style={{ scrollbarWidth: "none" }}>
-                <table className="w-full" style={{ minWidth: 520 }}>
+                <table className="w-full" style={{ minWidth: 620 }}>
                   <thead>
                     <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                      {["Spot", "Member", "Monthly Fee", "Status", ""].map((h) => (
+                      {["Spot", "Member", "Monthly Fee", "Share Space", "Status", ""].map((h) => (
                         <th
                           key={h}
                           className="text-left px-3 py-2"
@@ -506,14 +589,23 @@ export function SettingsPage() {
                               $
                             </span>
                             <input
-                              type="number"
-                              min={0}
-                              value={a.monthlyFee}
+                              type="text"
+                              inputMode="decimal"
+                              value={feeDrafts[a.id] ?? (a.monthlyFee === 0 ? "" : String(a.monthlyFee))}
                               onChange={(e) =>
-                                updateParkingAssignment(a.id, {
-                                  monthlyFee: parseFloat(e.target.value) || 0,
-                                })
+                                setFeeDrafts((prev) => ({ ...prev, [a.id]: e.target.value }))
                               }
+                              onBlur={() => {
+                                const raw = feeDrafts[a.id];
+                                const parsed = raw === undefined || raw === "" ? 0 : parseFloat(raw) || 0;
+                                updateParkingAssignment(a.id, { monthlyFee: parsed });
+                                setFeeDrafts((prev) => {
+                                  const next = { ...prev };
+                                  delete next[a.id];
+                                  return next;
+                                });
+                              }}
+                              placeholder="0"
                               className="w-24 pl-6 pr-2 py-2 rounded-lg outline-none"
                               style={{
                                 background: "var(--muted)",
@@ -521,6 +613,22 @@ export function SettingsPage() {
                                 fontSize: "12px",
                               }}
                             />
+                          </div>
+                        </td>
+                        <td className="px-3 py-3">
+                          <div>
+                            <Toggle
+                              on={a.shareSpace ?? false}
+                              onToggle={() =>
+                                updateParkingAssignment(a.id, { shareSpace: !(a.shareSpace ?? false) })
+                              }
+                              color="#0D9488"
+                            />
+                            <p style={{ color: "var(--muted-foreground)", fontSize: "9px", marginTop: 4, maxWidth: 100 }}>
+                              {(a.shareSpace ?? false)
+                                ? "Fee split among all bill members"
+                                : "Exclusive — assignee pays full fee"}
+                            </p>
                           </div>
                         </td>
                         <td className="px-3 py-3">
@@ -545,20 +653,22 @@ export function SettingsPage() {
                   </tbody>
                 </table>
               </div>
-              <button
-                type="button"
-                onClick={addParkingSpot}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold border-2 border-dashed"
-                style={{
-                  borderColor: "rgba(13,148,136,0.3)",
-                  color: "#0D9488",
-                  background: "rgba(13,148,136,0.03)",
-                  fontSize: "13px",
-                }}
-              >
-                <Plus size={15} />
-                Add Parking Spot
-              </button>
+              {localState.parkingAssignments.length < localState.parkingTotalSpots && (
+                <button
+                  type="button"
+                  onClick={addParkingSpot}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold border-2 border-dashed"
+                  style={{
+                    borderColor: "rgba(13,148,136,0.3)",
+                    color: "#0D9488",
+                    background: "rgba(13,148,136,0.03)",
+                    fontSize: "13px",
+                  }}
+                >
+                  <Plus size={15} />
+                  Add Parking Spot ({localState.parkingAssignments.length}/{localState.parkingTotalSpots})
+                </button>
+              )}
             </SectionCard>
           </div>
         );
@@ -810,8 +920,16 @@ export function SettingsPage() {
             </SectionCard>
             <SectionCard title="Admin Profile" desc="Displayed in the sidebar and header">
               <div className="space-y-4">
-                <InputField label="Display Name" k="adminName" />
-                <InputField label="Email Address" k="adminEmail" />
+                <SettingsInputField
+                  label="Display Name"
+                  value={localState.adminName}
+                  onChange={(v) => setLocalState((prev) => ({ ...prev, adminName: v }))}
+                />
+                <SettingsInputField
+                  label="Email Address"
+                  value={localState.adminEmail}
+                  onChange={(v) => setLocalState((prev) => ({ ...prev, adminEmail: v }))}
+                />
               </div>
             </SectionCard>
           </div>

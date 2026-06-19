@@ -73,7 +73,11 @@ interface AppContextValue {
     announcementTitle?: string;
     announcementMessage?: string;
     parkingSnapshot?: import("@/types").ParkingSnapshot | null;
+    isExtraBill?: boolean;
   }) => Promise<Bill | null>;
+  deleteBill: (id: string) => Promise<void>;
+  duplicateBill: (id: string) => Promise<void>;
+  markBillComplete: (id: string) => Promise<void>;
   updatePayment: (roommateId: number, paid: number) => Promise<void>;
   updateSettings: (settings: Settings) => Promise<void>;
   setActiveBillId: (id: string) => Promise<void>;
@@ -203,17 +207,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const navigate = useCallback(
     (p: string) => {
       setPage(p as Page);
-      const labels: Record<string, string> = {
-        dashboard: "Dashboard",
-        roommates: "Roommates",
-        bills: "Create Bill",
-        expenses: "Bill Details",
-        analytics: "Analytics",
-        settings: "Settings",
-      };
-      if (labels[p]) showToast(`Navigated to ${labels[p]}`, "info");
     },
-    [setPage, showToast]
+    [setPage]
   );
 
   const toggleDark = useCallback(async () => {
@@ -281,7 +276,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         data.rent,
         data.expenses,
         undefined,
-        parkingSnapshot
+        parkingSnapshot,
+        state.settings.roundUpAmounts ?? false
       );
       try {
         const res = await api.createBill({
@@ -294,6 +290,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           announcementTitle: data.announcementTitle ?? "",
           announcementMessage: data.announcementMessage ?? "",
           parkingSnapshot,
+          isExtraBill: data.isExtraBill ?? false,
         });
         applyState(res.state);
         showToast("Bill created successfully!", "success");
@@ -304,6 +301,45 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     },
     [state.roommates, state.settings, applyState, showToast]
+  );
+
+  const deleteBill = useCallback(
+    async (id: string) => {
+      try {
+        const res = await api.deleteBill(id);
+        applyState(res.state);
+        showToast("Bill deleted", "info");
+      } catch (e) {
+        showToast(e instanceof ApiError ? e.message : "Delete failed", "error");
+      }
+    },
+    [applyState, showToast]
+  );
+
+  const duplicateBill = useCallback(
+    async (id: string) => {
+      try {
+        const res = await api.duplicateBill(id);
+        applyState(res.state);
+        showToast("Bill duplicated", "success");
+      } catch (e) {
+        showToast(e instanceof ApiError ? e.message : "Duplicate failed", "error");
+      }
+    },
+    [applyState, showToast]
+  );
+
+  const markBillComplete = useCallback(
+    async (id: string) => {
+      try {
+        const res = await api.markBillComplete(id);
+        applyState(res.state);
+        showToast("Bill marked as completed", "success");
+      } catch (e) {
+        showToast(e instanceof ApiError ? e.message : "Update failed", "error");
+      }
+    },
+    [applyState, showToast]
   );
 
   const updatePayment = useCallback(
@@ -418,6 +454,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     updateRoommate,
     deleteRoommate,
     createBill,
+    deleteBill,
+    duplicateBill,
+    markBillComplete,
     updatePayment,
     updateSettings,
     setActiveBillId,
