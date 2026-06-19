@@ -81,10 +81,8 @@ export function buildMemberShareBreakdown(
   roundUp = false
 ): MemberShareBreakdown {
   const activeParking = getActiveParkingAssignments(parking, selectedIds);
-  const totalParkingFees = activeParking.reduce((sum, a) => sum + a.monthlyFee, 0);
-  const parkingIncluded = parking?.parkingIncludedInRent ?? false;
-  const rentForSharing = parkingIncluded ? rent - totalParkingFees : rent;
-  const rentShare = selectedIds.length > 0 ? rentForSharing / selectedIds.length : 0;
+  const { rentPool } = getRentPoolForSharing(rent, parking, selectedIds);
+  const rentShare = selectedIds.length > 0 ? rentPool / selectedIds.length : 0;
 
   let expenseShare = 0;
   for (const expense of expenses) {
@@ -168,6 +166,42 @@ export function getActiveParkingAssignments(
   );
 }
 
+export function getParkingShareMemberIds(
+  assignment: ParkingAssignment,
+  selectedIds: number[]
+): number[] {
+  if (assignment.shareSpace) return selectedIds;
+  return assignment.roommateId != null ? [assignment.roommateId] : [];
+}
+
+export function formatParkingShareLabel(
+  assignment: ParkingAssignment,
+  selectedIds: number[],
+  roommates: Pick<Roommate, "id" | "name">[]
+): string {
+  const sharerIds = getParkingShareMemberIds(assignment, selectedIds);
+  if (sharerIds.length === 0) return "Unassigned";
+  const names = sharerIds
+    .map((id) => roommates.find((r) => r.id === id)?.name.split(" ")[0])
+    .filter(Boolean);
+  if (assignment.shareSpace) {
+    return names.length > 0 ? `Shared by ${names.join(", ")}` : "All members";
+  }
+  return names[0] ?? "Assigned member";
+}
+
+export function getRentPoolForSharing(
+  rent: number,
+  parking: ParkingSnapshot | null | undefined,
+  selectedIds: number[]
+): { rentPool: number; totalParkingFees: number; parkingIncluded: boolean } {
+  const activeParking = getActiveParkingAssignments(parking, selectedIds);
+  const totalParkingFees = activeParking.reduce((sum, a) => sum + a.monthlyFee, 0);
+  const parkingIncluded = parking?.parkingIncludedInRent ?? false;
+  const rentPool = parkingIncluded ? rent - totalParkingFees : rent;
+  return { rentPool, totalParkingFees, parkingIncluded };
+}
+
 export function calcTotalParkingFees(
   parking: ParkingSnapshot | null | undefined,
   selectedIds: number[]
@@ -187,7 +221,7 @@ export function getExpenseSharers(
 
 export function formatSharedByLabel(
   expense: Expense,
-  roommates: Roommate[],
+  roommates: Pick<Roommate, "id" | "name">[],
   selectedRoommateIds: number[]
 ) {
   const sharers = getExpenseSharers(expense, selectedRoommateIds);

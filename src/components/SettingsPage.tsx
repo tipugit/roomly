@@ -624,11 +624,21 @@ export function SettingsPage() {
                               }
                               color="#0D9488"
                             />
-                            <p style={{ color: "var(--muted-foreground)", fontSize: "9px", marginTop: 4, maxWidth: 100 }}>
-                              {(a.shareSpace ?? false)
-                                ? "Fee split among all bill members"
-                                : "Exclusive — assignee pays full fee"}
-                            </p>
+                            {(a.shareSpace ?? false) ? (
+                              <div className="mt-2 px-2 py-1.5 rounded-lg" style={{ background: "#ECFDF5", maxWidth: 140 }}>
+                                <p style={{ color: "#059669", fontSize: "9px", fontWeight: 600, lineHeight: 1.4 }}>
+                                  Shared by:{" "}
+                                  {roommates.map((r) => r.name.split(" ")[0]).join(", ") || "All members"}
+                                </p>
+                                <p style={{ color: "#64748B", fontSize: "8px", marginTop: 2 }}>
+                                  Fee split among all members
+                                </p>
+                              </div>
+                            ) : (
+                              <p style={{ color: "var(--muted-foreground)", fontSize: "9px", marginTop: 4, maxWidth: 100 }}>
+                                Exclusive — assignee pays full fee
+                              </p>
+                            )}
                           </div>
                         </td>
                         <td className="px-3 py-3">

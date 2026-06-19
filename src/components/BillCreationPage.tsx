@@ -16,6 +16,7 @@ import {
   buildRoommateShares,
   calcCollectionSummary,
   formatAmount,
+  formatParkingShareLabel,
 } from "@/lib/utils";
 
 const expenseCategories = [
@@ -606,23 +607,38 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
               <div className="space-y-2">
                 {parkingSnapshot.assignments.map((a) => {
                   const member = roommates.find((r) => r.id === a.roommateId);
+                  const shareLabel = formatParkingShareLabel(a, selected, roommates);
+                  const sharerCount = a.shareSpace ? selected.length : 1;
+                  const perPerson = sharerCount > 0 ? a.monthlyFee / sharerCount : 0;
                   return (
                     <div
                       key={a.spotName}
-                      className="flex items-center justify-between p-3 rounded-xl"
+                      className="p-3 rounded-xl"
                       style={{ background: "var(--muted)", border: "1px solid var(--border)" }}
                     >
-                      <div>
-                        <div style={{ color: "var(--foreground)", fontSize: "13px", fontWeight: 600 }}>
-                          {a.spotName}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div style={{ color: "var(--foreground)", fontSize: "13px", fontWeight: 600 }}>
+                            {a.spotName}
+                          </div>
+                          <div style={{ color: "var(--muted-foreground)", fontSize: "11px" }}>
+                            {member?.name ?? "Unassigned"}
+                          </div>
                         </div>
-                        <div style={{ color: "var(--muted-foreground)", fontSize: "11px" }}>
-                          {member?.name ?? "Unassigned"}
-                        </div>
+                        <span style={{ color: "#4F46E5", fontWeight: 700, fontSize: "13px" }}>
+                          ${a.monthlyFee}/mo
+                        </span>
                       </div>
-                      <span style={{ color: "#4F46E5", fontWeight: 700, fontSize: "13px" }}>
-                        ${a.monthlyFee}/mo
-                      </span>
+                      {a.shareSpace && selected.length > 0 && (
+                        <div className="mt-2 px-2.5 py-1.5 rounded-lg" style={{ background: "#ECFDF5" }}>
+                          <p style={{ color: "#059669", fontSize: "10px", fontWeight: 600 }}>
+                            Share Space — {shareLabel}
+                          </p>
+                          <p style={{ color: "#64748B", fontSize: "10px", marginTop: 2 }}>
+                            ${perPerson.toFixed(2)} per selected member
+                          </p>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

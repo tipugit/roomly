@@ -18,6 +18,7 @@ import {
   demoRoommates,
   demoRent,
   demoTotal,
+  getDemoMemberShares,
   openDemoBill,
 } from "@/lib/demo";
 
@@ -69,6 +70,7 @@ function goRegister() {
 export function LandingPage() {
   const paidCount = demoBill.roommateShares.filter((s) => s.status === "Paid").length;
   const pendingCount = demoBill.roommateShares.length - paidCount;
+  const memberShares = getDemoMemberShares();
 
   return (
     <div
@@ -258,9 +260,7 @@ export function LandingPage() {
               </div>
 
               <div className="space-y-2 mb-5">
-                {demoRoommates.slice(0, 4).map((r) => {
-                  const share = demoBill.roommateShares.find((s) => s.roommateId === r.id);
-                  const status = share?.status ?? "Pending";
+                {memberShares.map(({ roommate: r, share, status, calc }) => {
                   const statusColor =
                     status === "Paid" ? "#059669" : status === "Partial" ? "#D97706" : "#EF4444";
                   const statusBg =
@@ -268,27 +268,35 @@ export function LandingPage() {
                   return (
                     <div
                       key={r.id}
-                      className="flex items-center justify-between p-2.5 rounded-xl"
+                      className="p-2.5 rounded-xl"
                       style={{ background: "#F8FAFC" }}
                     >
-                      <div className="flex items-center gap-2.5">
-                        <div
-                          className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold"
-                          style={{ background: r.avatarGrad }}
-                        >
-                          {r.initials}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div
+                            className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold"
+                            style={{ background: r.avatarGrad }}
+                          >
+                            {r.initials}
+                          </div>
+                          <div>
+                            <p style={{ fontSize: "13px", fontWeight: 600 }}>{r.name}</p>
+                            <p style={{ fontSize: "10px", color: "#94A3B8" }}>
+                              Rent ${calc.rentShare} · Exp ${calc.expenseShare}
+                              {calc.parkingShare > 0 && ` · Parking $${calc.parkingShare}`}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p style={{ fontSize: "13px", fontWeight: 600 }}>{r.name.split(" ")[0]}</p>
-                          <p style={{ fontSize: "11px", color: "#94A3B8" }}>Room {r.room}</p>
+                        <div className="text-right">
+                          <p style={{ fontSize: "14px", fontWeight: 800, color: "#4F46E5" }}>${share}</p>
+                          <span
+                            className="px-2 py-0.5 rounded-lg font-semibold"
+                            style={{ fontSize: "10px", background: statusBg, color: statusColor }}
+                          >
+                            {status}
+                          </span>
                         </div>
                       </div>
-                      <span
-                        className="px-2 py-0.5 rounded-lg font-semibold"
-                        style={{ fontSize: "11px", background: statusBg, color: statusColor }}
-                      >
-                        {status}
-                      </span>
                     </div>
                   );
                 })}

@@ -9,6 +9,9 @@ import {
   ChevronLeft,
   Shield,
   FileText,
+  Car,
+  Calculator,
+  Users,
 } from "lucide-react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { useApp } from "@/context/AppContext";
@@ -16,12 +19,16 @@ import { BillAnnouncements } from "@/components/BillAnnouncements";
 import { CollectionSummaryCard } from "@/components/CollectionSummaryCard";
 import { printPage } from "@/lib/print";
 import {
-  calcBillTotal,
+  buildMemberShareBreakdown,
   calcCollectionSummary,
+  formatCurrencyDetailed,
+  formatParkingShareLabel,
   formatSharedByLabel,
+  getActiveParkingAssignments,
   getBillExpensesWithRent,
   getCategoryColor,
   getCategoryIcon,
+  getRentPoolForSharing,
   getRoommateById,
 } from "@/lib/utils";
 
@@ -69,7 +76,15 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
       const roommate = sharedPayload
         ? billRoommates.find((r) => r.id === rs.roommateId)
         : getRoommateById(roommates, rs.roommateId);
+      const calc = buildMemberShareBreakdown(
+        rs.roommateId,
+        bill.selectedRoommateIds,
+        bill.rent,
+        bill.expenses,
+        bill.parkingSnapshot
+      );
       return {
+        roommateId: rs.roommateId,
         name: roommate?.name ?? "Unknown",
         room: roommate?.room ?? "—",
         initials: roommate?.initials ?? "?",
@@ -77,22 +92,37 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
         share: rs.share,
         paid: rs.paid,
         status: rs.status,
+        calc,
       };
     });
   }, [bill, billRoommates, roommates, sharedPayload]);
 
-  const total = bill ? calcBillTotal(bill.rent, bill.expenses) : 0;
   const collectionSummary = bill ? calcCollectionSummary(bill) : null;
-  const totalToCollect = collectionSummary?.totalToCollect ?? total;
+  const totalToCollect = collectionSummary?.totalToCollect ?? 0;
   const totalCollected = collectionSummary?.totalPaid ?? 0;
   const paidCount = roommateRows.filter((r) => r.status === "Paid").length;
   const roommateCount = bill?.selectedRoommateIds.length ?? 0;
+
+  const rentCalc = useMemo(() => {
+    if (!bill) return null;
+    return getRentPoolForSharing(bill.rent, bill.parkingSnapshot, bill.selectedRoommateIds);
+  }, [bill]);
+
+  const parkingAssignments = useMemo(() => {
+    if (!bill) return [];
+    return getActiveParkingAssignments(bill.parkingSnapshot, bill.selectedRoommateIds);
+  }, [bill]);
 
   const pieData = expenses.map((e) => ({
     name: e.name,
     value: e.amount,
     color: getCategoryColor(e.category),
   }));
+
+  const avgShare =
+    roommateRows.length > 0
+      ? roommateRows.reduce((s, r) => s + r.share, 0) / roommateRows.length
+      : 0;
 
   const handleDownload = () => {
     setDownloaded(true);
@@ -139,12 +169,13 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
     return d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
   })();
 
+  const rentPerPerson = rentCalc && roommateCount > 0 ? rentCalc.rentPool / roommateCount : 0;
+
   return (
     <div
       className="min-h-screen"
       style={{ background: "linear-gradient(160deg, #F0F4FF 0%, #F8FAFC 60%, #FDF4FF 100%)", fontFamily: "'Inter', sans-serif" }}
     >
-      {/* Sticky top bar */}
       <div
         className="no-print sticky top-0 z-10 flex items-center justify-between px-4 sm:px-6 py-3.5"
         style={{
@@ -213,8 +244,8 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 py-10 space-y-6">
-        {/* House hero */}
+      <div className="max-w-3xl mx-auto px-4 py-10 space-y-6">
+        {/* Hero */}
         <div
           className="rounded-3xl p-8 text-center relative overflow-hidden"
           style={{
@@ -254,7 +285,7 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
           </div>
         </div>
 
-        {/* Summary grid */}
+        {/* Summary */}
         <div className="grid grid-cols-3 gap-3">
           {[
             { label: "Total Bill", value: `$${totalToCollect.toLocaleString()}`, color: "#4F46E5", bg: "#EEF2FF", border: "rgba(79,70,229,0.2)" },
@@ -266,7 +297,7 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
               className="rounded-2xl p-4 text-center"
               style={{ background: s.bg, border: `1.5px solid ${s.border}` }}
             >
-              <div style={{ color: s.color, fontWeight: 900, fontSize: "24px", letterSpacing: "-0.5px" }}>{s.value}</div>
+              <div style={{ color: s.color, fontWeight: 900, fontSize: "22px", letterSpacing: "-0.5px" }}>{s.value}</div>
               <div style={{ color: s.color + "99", fontSize: "11px", fontWeight: 600, marginTop: 2 }}>{s.label}</div>
             </div>
           ))}
@@ -292,10 +323,6 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
               }}
             />
           </div>
-          <div className="flex justify-between mt-2">
-            <span style={{ color: "#64748B", fontSize: "11px" }}>$0</span>
-            <span style={{ color: "#64748B", fontSize: "11px" }}>${totalToCollect.toLocaleString()}</span>
-          </div>
         </div>
 
         <BillAnnouncements
@@ -308,6 +335,111 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
 
         {collectionSummary && <CollectionSummaryCard summary={collectionSummary} variant="public" />}
 
+        {/* How it's calculated */}
+        {rentCalc && (
+          <div
+            className="rounded-2xl overflow-hidden"
+            style={{ background: "white", border: "1px solid rgba(79,70,229,0.1)", boxShadow: "0 2px 20px rgba(79,70,229,0.06)" }}
+          >
+            <div className="px-6 py-4 flex items-center gap-2" style={{ borderBottom: "1px solid rgba(79,70,229,0.08)", background: "#F8FAFC" }}>
+              <Calculator size={16} style={{ color: "#4F46E5" }} />
+              <div>
+                <h2 style={{ color: "#0F0D2A", fontWeight: 700, fontSize: "16px" }}>How Payments Are Calculated</h2>
+                <p style={{ color: "#64748B", fontSize: "12px", marginTop: 2 }}>Step-by-step breakdown of each share</p>
+              </div>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="p-4 rounded-xl" style={{ background: "#EEF2FF", border: "1px solid rgba(79,70,229,0.12)" }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold text-white" style={{ background: "#4F46E5" }}>1</span>
+                  <span style={{ fontWeight: 700, fontSize: "13px", color: "#1E1B4B" }}>Rent Split</span>
+                </div>
+                {rentCalc.parkingIncluded && rentCalc.totalParkingFees > 0 ? (
+                  <p style={{ color: "#64748B", fontSize: "12px", lineHeight: 1.6 }}>
+                    Base rent <strong>${bill.rent.toLocaleString()}</strong> minus parking fees{" "}
+                    <strong>${rentCalc.totalParkingFees.toLocaleString()}</strong> ={" "}
+                    <strong>${rentCalc.rentPool.toLocaleString()}</strong> shared pool, divided by{" "}
+                    <strong>{roommateCount}</strong> members ={" "}
+                    <strong style={{ color: "#4F46E5" }}>{formatCurrencyDetailed(rentPerPerson)}</strong> each
+                  </p>
+                ) : (
+                  <p style={{ color: "#64748B", fontSize: "12px", lineHeight: 1.6 }}>
+                    Base rent <strong>${bill.rent.toLocaleString()}</strong> divided by{" "}
+                    <strong>{roommateCount}</strong> members ={" "}
+                    <strong style={{ color: "#4F46E5" }}>{formatCurrencyDetailed(rentPerPerson)}</strong> each
+                  </p>
+                )}
+              </div>
+
+              {bill.expenses.length > 0 && (
+                <div className="p-4 rounded-xl" style={{ background: "#ECFEFF", border: "1px solid rgba(6,182,212,0.15)" }}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold text-white" style={{ background: "#06B6D4" }}>2</span>
+                    <span style={{ fontWeight: 700, fontSize: "13px", color: "#0E7490" }}>Expense Splits</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {bill.expenses.map((e) => {
+                      const sharers = e.shareMode === "selected" && e.sharedBy?.length
+                        ? e.sharedBy.filter((id) => bill.selectedRoommateIds.includes(id))
+                        : bill.selectedRoommateIds;
+                      const perPerson = sharers.length > 0 ? e.amount / sharers.length : 0;
+                      const sharedLabel = formatSharedByLabel(e, billRoommates, bill.selectedRoommateIds);
+                      return (
+                        <div key={e.id} className="flex justify-between items-center" style={{ fontSize: "12px" }}>
+                          <span style={{ color: "#64748B" }}>
+                            {e.name} (${e.amount}) — {sharedLabel}
+                          </span>
+                          <span style={{ color: "#0891B2", fontWeight: 600 }}>{formatCurrencyDetailed(perPerson)}/ea</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {parkingAssignments.length > 0 && (
+                <div className="p-4 rounded-xl" style={{ background: "#F0FDF4", border: "1px solid rgba(16,185,129,0.15)" }}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold text-white" style={{ background: "#10B981" }}>3</span>
+                    <span style={{ fontWeight: 700, fontSize: "13px", color: "#065F46" }}>Parking Fees</span>
+                  </div>
+                  <div className="space-y-2">
+                    {parkingAssignments.map((a) => {
+                      const sharerIds = a.shareSpace ? bill.selectedRoommateIds : [a.roommateId!];
+                      const perPerson = sharerIds.length > 0 ? a.monthlyFee / sharerIds.length : 0;
+                      const shareLabel = formatParkingShareLabel(a, bill.selectedRoommateIds, billRoommates);
+                      return (
+                        <div key={a.spotName} className="p-3 rounded-lg" style={{ background: "white", border: "1px solid rgba(16,185,129,0.1)" }}>
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <Car size={12} style={{ color: "#10B981" }} />
+                                <span style={{ fontWeight: 600, fontSize: "12px", color: "#0F0D2A" }}>{a.spotName}</span>
+                              </div>
+                              <p style={{ color: "#64748B", fontSize: "11px", marginTop: 4 }}>{shareLabel}</p>
+                              {a.shareSpace && (
+                                <div className="flex items-center gap-1 mt-1.5">
+                                  <Users size={10} style={{ color: "#10B981" }} />
+                                  <span style={{ color: "#059669", fontSize: "10px", fontWeight: 600 }}>
+                                    Split ${a.monthlyFee} among all members
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                            <span style={{ color: "#059669", fontWeight: 700, fontSize: "13px" }}>
+                              {a.shareSpace ? `${formatCurrencyDetailed(perPerson)}/ea` : formatCurrencyDetailed(a.monthlyFee)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Expense table */}
         <div
           className="rounded-2xl overflow-hidden"
@@ -319,84 +451,54 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
               {expenses.length} line items · {bill.month}
             </p>
           </div>
-          <table className="w-full">
-            <thead>
-              <tr style={{ background: "#F8FAFC", borderBottom: "1px solid rgba(79,70,229,0.06)" }}>
-                <th className="text-left px-6 py-3" style={{ color: "#94A3B8", fontSize: "11px", fontWeight: 600 }}>ITEM</th>
-                <th className="text-right px-6 py-3" style={{ color: "#94A3B8", fontSize: "11px", fontWeight: 600 }}>AMOUNT</th>
-                <th className="text-right px-6 py-3 hidden sm:table-cell" style={{ color: "#94A3B8", fontSize: "11px", fontWeight: 600 }}>PAID BY</th>
-                <th className="text-right px-6 py-3 hidden md:table-cell" style={{ color: "#94A3B8", fontSize: "11px", fontWeight: 600 }}>SHARED BY</th>
-              </tr>
-            </thead>
-            <tbody>
-              {expenses.map((e, i) => {
-                const color = getCategoryColor(e.category);
-                const icon = e.icon ?? getCategoryIcon(e.category);
-                const payer = e.paidBy
-                  ? (sharedPayload
-                      ? billRoommates.find((r) => r.id === e.paidBy)
-                      : getRoommateById(roommates, e.paidBy))
-                  : null;
-                const sharedLabel =
-                  e.id === 0
-                    ? "All members"
-                    : bill
-                      ? formatSharedByLabel(e, roommates, bill.selectedRoommateIds)
-                      : "All members";
-                return (
-                  <tr key={e.id} style={{ borderBottom: i < expenses.length - 1 ? "1px solid rgba(79,70,229,0.05)" : "none" }}>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0"
-                          style={{ background: color + "18" }}
-                        >
-                          {icon}
-                        </div>
-                        <span style={{ color: "#0F0D2A", fontWeight: 600, fontSize: "13.5px" }}>{e.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <span style={{ color: "#0F0D2A", fontWeight: 800, fontSize: "15px" }}>${e.amount.toLocaleString()}</span>
-                    </td>
-                    <td className="px-6 py-4 text-right hidden sm:table-cell">
-                      {payer ? (
-                        <span className="px-2.5 py-1 rounded-full text-xs font-semibold" style={{ background: color + "18", color }}>
-                          {payer.name.split(" ")[0]}
-                        </span>
-                      ) : (
-                        <span style={{ color: "#94A3B8", fontSize: "12px" }}>—</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-right hidden md:table-cell">
-                      <span style={{ color: "#64748B", fontSize: "12px" }}>{sharedLabel}</span>
-                    </td>
-                  </tr>
-                );
-              })}
-              <tr style={{ background: "linear-gradient(135deg, #EEF2FF, #F5F3FF)", borderTop: "2px solid rgba(79,70,229,0.15)" }}>
-                <td className="px-6 py-4">
-                  <span style={{ color: "#0F0D2A", fontWeight: 800, fontSize: "14px" }}>TOTAL</span>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <span style={{ color: "#4F46E5", fontWeight: 900, fontSize: "20px" }}>
-                    ${totalToCollect.toLocaleString()}
-                  </span>
-                </td>
-                <td className="px-6 py-4 hidden sm:table-cell" />
-                <td className="px-6 py-4 hidden md:table-cell" />
-              </tr>
-            </tbody>
-          </table>
+          <div className="divide-y" style={{ borderColor: "rgba(79,70,229,0.05)" }}>
+            {expenses.map((e) => {
+              const color = getCategoryColor(e.category);
+              const icon = e.icon ?? getCategoryIcon(e.category);
+              const payer = e.paidBy
+                ? (sharedPayload
+                    ? billRoommates.find((r) => r.id === e.paidBy)
+                    : getRoommateById(roommates, e.paidBy))
+                : null;
+              const sharedLabel =
+                e.id === 0
+                  ? "All members"
+                  : formatSharedByLabel(e, billRoommates, bill.selectedRoommateIds);
+              return (
+                <div key={e.id} className="flex items-center gap-4 px-6 py-4">
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center text-base flex-shrink-0"
+                    style={{ background: color + "18" }}
+                  >
+                    {icon}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div style={{ color: "#0F0D2A", fontWeight: 600, fontSize: "14px" }}>{e.name}</div>
+                    <div style={{ color: "#94A3B8", fontSize: "11px", marginTop: 2 }}>
+                      {sharedLabel}
+                      {payer && ` · Paid by ${payer.name.split(" ")[0]}`}
+                    </div>
+                  </div>
+                  <span style={{ color: "#0F0D2A", fontWeight: 800, fontSize: "16px" }}>${e.amount.toLocaleString()}</span>
+                </div>
+              );
+            })}
+            <div className="flex items-center justify-between px-6 py-4" style={{ background: "linear-gradient(135deg, #EEF2FF, #F5F3FF)" }}>
+              <span style={{ color: "#0F0D2A", fontWeight: 800, fontSize: "14px" }}>TOTAL</span>
+              <span style={{ color: "#4F46E5", fontWeight: 900, fontSize: "20px" }}>
+                ${totalToCollect.toLocaleString()}
+              </span>
+            </div>
+          </div>
         </div>
 
-        {/* Pie + roommate split row */}
+        {/* Each Share + Breakdown */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div
             className="rounded-2xl p-5"
             style={{ background: "white", border: "1px solid rgba(79,70,229,0.1)", boxShadow: "0 2px 16px rgba(79,70,229,0.06)" }}
           >
-            <h3 style={{ color: "#0F0D2A", fontWeight: 700, fontSize: "14px", marginBottom: 8 }}>Breakdown</h3>
+            <h3 style={{ color: "#0F0D2A", fontWeight: 700, fontSize: "14px", marginBottom: 8 }}>Category Breakdown</h3>
             <ResponsiveContainer width="100%" height={140}>
               <PieChart>
                 <Pie data={pieData} cx="50%" cy="50%" outerRadius={60} innerRadius={32} dataKey="value" strokeWidth={0}>
@@ -423,56 +525,96 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
             className="rounded-2xl p-5"
             style={{ background: "linear-gradient(135deg, #EEF2FF, #F5F3FF)", border: "1.5px solid rgba(79,70,229,0.2)" }}
           >
-            <h3 style={{ color: "#1E1B4B", fontWeight: 700, fontSize: "14px", marginBottom: 4 }}>Your Share</h3>
+            <h3 style={{ color: "#1E1B4B", fontWeight: 700, fontSize: "14px", marginBottom: 4 }}>Each Share</h3>
             <div style={{ color: "#4F46E5", fontWeight: 900, fontSize: "36px", letterSpacing: "-1px" }}>
-              ${roommateRows[0]?.share ?? 0}
+              {formatCurrencyDetailed(avgShare)}
             </div>
-            <div style={{ color: "#6366F1", fontSize: "12px" }}>individual amount due</div>
-            {collectionSummary && collectionSummary.parkingFees > 0 && (
-              <div className="mt-3 space-y-1">
+            <div style={{ color: "#6366F1", fontSize: "12px", marginBottom: 12 }}>average amount per roommate</div>
+            <div className="space-y-1.5 pt-3" style={{ borderTop: "1px solid rgba(79,70,229,0.15)" }}>
+              <div className="flex justify-between">
+                <span style={{ color: "#6366F1", fontSize: "11px" }}>Rent share (each)</span>
+                <span style={{ color: "#4F46E5", fontSize: "11px", fontWeight: 600 }}>{formatCurrencyDetailed(rentPerPerson)}</span>
+              </div>
+              {roommateRows[0] && roommateRows[0].calc.expenseShare > 0 && (
                 <div className="flex justify-between">
-                  <span style={{ color: "#6366F1", fontSize: "11px" }}>Parking fees (house)</span>
+                  <span style={{ color: "#6366F1", fontSize: "11px" }}>Avg. expenses</span>
                   <span style={{ color: "#4F46E5", fontSize: "11px", fontWeight: 600 }}>
-                    ${collectionSummary.parkingFees}
+                    {formatCurrencyDetailed(
+                      roommateRows.reduce((s, r) => s + r.calc.expenseShare, 0) / roommateRows.length
+                    )}
                   </span>
                 </div>
+              )}
+              <div className="flex justify-between">
+                <span style={{ color: "#6366F1", fontSize: "11px" }}>Parking varies</span>
+                <span style={{ color: "#94A3B8", fontSize: "11px" }}>see splits below</span>
               </div>
-            )}
+            </div>
           </div>
         </div>
 
-        {/* Roommate splits */}
+        {/* Individual Splits */}
         <div
           className="rounded-2xl overflow-hidden"
           style={{ background: "white", border: "1px solid rgba(79,70,229,0.1)", boxShadow: "0 2px 20px rgba(79,70,229,0.06)" }}
         >
-          <div className="px-6 py-4" style={{ borderBottom: "1px solid rgba(79,70,229,0.06)" }}>
+          <div className="px-6 py-4" style={{ borderBottom: "1px solid rgba(79,70,229,0.06)", background: "#F8FAFC" }}>
             <h2 style={{ color: "#0F0D2A", fontWeight: 700, fontSize: "16px" }}>Individual Splits</h2>
-            <p style={{ color: "#64748B", fontSize: "12px", marginTop: 2 }}>Each roommate's share and payment status</p>
+            <p style={{ color: "#64748B", fontSize: "12px", marginTop: 2 }}>
+              Rent + expenses + parking = total due per roommate
+            </p>
           </div>
-          <div className="p-4 space-y-2.5">
+          <div className="p-4 space-y-3">
             {roommateRows.map((r) => {
               const sc = statusConfig[r.status];
               return (
                 <div
-                  key={r.name}
-                  className="flex items-center gap-4 p-4 rounded-2xl"
-                  style={{ background: "#F8FAFC", border: "1px solid rgba(79,70,229,0.06)" }}
+                  key={r.roommateId}
+                  className="rounded-2xl overflow-hidden"
+                  style={{ border: "1px solid rgba(79,70,229,0.08)" }}
                 >
+                  <div className="flex items-center gap-4 p-4" style={{ background: "#F8FAFC" }}>
+                    <div
+                      className="w-11 h-11 rounded-2xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                      style={{ background: r.color, boxShadow: `0 4px 12px ${r.color}40` }}
+                    >
+                      {r.initials}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div style={{ color: "#0F0D2A", fontWeight: 600, fontSize: "14px" }}>{r.name}</div>
+                      <div style={{ color: "#94A3B8", fontSize: "12px" }}>Room {r.room}</div>
+                    </div>
+                    <div className="text-right">
+                      <div style={{ color: "#0F0D2A", fontWeight: 800, fontSize: "18px" }}>${r.share}</div>
+                      <div className="flex items-center gap-1 justify-end mt-0.5">
+                        {sc.icon}
+                        <span style={{ color: sc.text, fontSize: "11px", fontWeight: 600 }}>{sc.label}</span>
+                      </div>
+                    </div>
+                  </div>
                   <div
-                    className="w-11 h-11 rounded-2xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
-                    style={{ background: r.color, boxShadow: `0 4px 12px ${r.color}40` }}
+                    className="px-4 py-3 flex flex-wrap gap-x-4 gap-y-1"
+                    style={{ background: "white", borderTop: "1px solid rgba(79,70,229,0.06)" }}
                   >
-                    {r.initials}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div style={{ color: "#0F0D2A", fontWeight: 600, fontSize: "14px" }}>{r.name}</div>
-                    <div style={{ color: "#94A3B8", fontSize: "12px" }}>Room {r.room}</div>
-                  </div>
-                  <div style={{ color: "#0F0D2A", fontWeight: 800, fontSize: "17px" }}>${r.share}</div>
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ background: sc.bg }}>
-                    {sc.icon}
-                    <span style={{ color: sc.text, fontSize: "12px", fontWeight: 600 }}>{sc.label}</span>
+                    <span style={{ fontSize: "11px", color: "#64748B" }}>
+                      Rent <strong style={{ color: "#4F46E5" }}>{formatCurrencyDetailed(r.calc.rentShare)}</strong>
+                    </span>
+                    <span style={{ fontSize: "11px", color: "#94A3B8" }}>+</span>
+                    <span style={{ fontSize: "11px", color: "#64748B" }}>
+                      Expenses <strong style={{ color: "#06B6D4" }}>{formatCurrencyDetailed(r.calc.expenseShare)}</strong>
+                    </span>
+                    {r.calc.parkingShare > 0 && (
+                      <>
+                        <span style={{ fontSize: "11px", color: "#94A3B8" }}>+</span>
+                        <span style={{ fontSize: "11px", color: "#64748B" }}>
+                          Parking <strong style={{ color: "#10B981" }}>{formatCurrencyDetailed(r.calc.parkingShare)}</strong>
+                        </span>
+                      </>
+                    )}
+                    <span style={{ fontSize: "11px", color: "#94A3B8" }}>=</span>
+                    <span style={{ fontSize: "11px", color: "#0F0D2A", fontWeight: 700 }}>
+                      {formatCurrencyDetailed(r.calc.total)}
+                    </span>
                   </div>
                 </div>
               );

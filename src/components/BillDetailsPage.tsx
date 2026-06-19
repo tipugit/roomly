@@ -11,9 +11,9 @@ import {
   FileText,
   Plus,
   Copy,
-  Edit2,
   Trash2,
   Check,
+  Car,
 } from "lucide-react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { useApp } from "@/context/AppContext";
@@ -26,7 +26,9 @@ import {
   calcCollectionSummary,
   copyToClipboard,
   formatAmount,
+  formatParkingShareLabel,
   formatSharedByLabel,
+  getActiveParkingAssignments,
   getBillExpensesWithRent,
   getCategoryColor,
   getRoommateById,
@@ -188,103 +190,138 @@ export function BillDetailsPage({ onBack, onShareView }: BillDetailsPageProps) {
         </button>
       </div>
 
-      {/* All bills list */}
-      <div
-        className="rounded-2xl overflow-hidden"
-        style={{ background: "var(--card)", border: "1px solid var(--border)", boxShadow: "0 2px 20px rgba(79,70,229,0.06)" }}
-      >
-        <div className="overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-          <table className="w-full" style={{ minWidth: 640 }}>
-            <thead>
-              <tr style={{ background: "var(--muted)", borderBottom: "1px solid var(--border)" }}>
-                {["Month", "Total", "Status", "Actions"].map((h) => (
-                  <th
-                    key={h}
-                    className="text-left px-4 py-3"
-                    style={{ color: "var(--muted-foreground)", fontSize: "11px", fontWeight: 600, letterSpacing: "0.4px" }}
-                  >
-                    {h.toUpperCase()}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {bills.map((bill) => {
-                const summary = calcCollectionSummary(bill);
-                const complete = isBillComplete(bill);
-                const isActive = activeBill?.id === bill.id;
-                return (
-                  <tr
-                    key={bill.id}
-                    style={{
-                      borderBottom: "1px solid var(--border)",
-                      background: isActive ? "rgba(79,70,229,0.04)" : "transparent",
-                    }}
-                  >
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => void setActiveBillId(bill.id)}
-                        className="text-left"
-                      >
-                        <div style={{ color: "var(--foreground)", fontWeight: 600, fontSize: "13px" }}>
+      {/* All bills — card grid */}
+      <div>
+        <h2 style={{ color: "var(--foreground)", fontWeight: 700, fontSize: "15px", marginBottom: 12 }}>
+          Your Bills
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          {bills.map((bill) => {
+            const summary = calcCollectionSummary(bill);
+            const complete = isBillComplete(bill);
+            const isActive = activeBill?.id === bill.id;
+            const paidShares = bill.roommateShares.filter((s) => s.status === "Paid").length;
+            const totalShares = bill.roommateShares.length;
+
+            return (
+              <div
+                key={bill.id}
+                className="rounded-2xl overflow-hidden transition-all cursor-pointer"
+                style={{
+                  background: "var(--card)",
+                  border: isActive ? "2px solid #4F46E5" : "1px solid var(--border)",
+                  boxShadow: isActive
+                    ? "0 8px 32px rgba(79,70,229,0.18)"
+                    : "0 2px 16px rgba(79,70,229,0.06)",
+                }}
+                onClick={() => void setActiveBillId(bill.id)}
+              >
+                <div
+                  className="p-5"
+                  style={{
+                    background: isActive
+                      ? "linear-gradient(135deg, #EEF2FF, #F5F3FF)"
+                      : "var(--card)",
+                  }}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 style={{ color: "var(--foreground)", fontWeight: 700, fontSize: "16px" }}>
                           {bill.month}
-                          {bill.isExtraBill && (
-                            <span className="ml-2 px-1.5 py-0.5 rounded text-xs" style={{ background: "#FEF3C7", color: "#D97706" }}>
-                              Extra
-                            </span>
-                          )}
-                        </div>
-                        <div style={{ color: "var(--muted-foreground)", fontSize: "11px" }}>{bill.createdAt}</div>
-                      </button>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span style={{ color: "var(--foreground)", fontWeight: 700, fontSize: "14px" }}>
-                        ${summary.totalToCollect.toLocaleString()}
+                        </h3>
+                        {bill.isExtraBill && (
+                          <span className="px-1.5 py-0.5 rounded text-xs" style={{ background: "#FEF3C7", color: "#D97706" }}>
+                            Extra
+                          </span>
+                        )}
+                      </div>
+                      <p style={{ color: "var(--muted-foreground)", fontSize: "11px", marginTop: 2 }}>
+                        {bill.createdAt} · {bill.selectedRoommateIds.length} roommates
+                      </p>
+                    </div>
+                    <span
+                      className="px-2.5 py-1 rounded-full text-xs font-semibold"
+                      style={{
+                        background: complete ? "#ECFDF5" : "#FFFBEB",
+                        color: complete ? "#059669" : "#D97706",
+                      }}
+                    >
+                      {complete ? "Completed" : "Open"}
+                    </span>
+                  </div>
+
+                  <div
+                    className="p-3 rounded-xl mb-3"
+                    style={{ background: isActive ? "white" : "var(--muted)" }}
+                  >
+                    <p style={{ color: "var(--muted-foreground)", fontSize: "10px", fontWeight: 600, letterSpacing: "0.5px" }}>
+                      TOTAL TO COLLECT
+                    </p>
+                    <p style={{ color: "#4F46E5", fontWeight: 900, fontSize: "26px", letterSpacing: "-0.5px" }}>
+                      ${summary.totalToCollect.toLocaleString()}
+                    </p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <div className="flex-1 h-1.5 rounded-full" style={{ background: "rgba(79,70,229,0.1)" }}>
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${totalShares > 0 ? (paidShares / totalShares) * 100 : 0}%`,
+                            background: "linear-gradient(90deg, #4F46E5, #10B981)",
+                          }}
+                        />
+                      </div>
+                      <span style={{ color: "var(--muted-foreground)", fontSize: "10px", fontWeight: 600 }}>
+                        {paidShares}/{totalShares} paid
                       </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className="px-2 py-0.5 rounded-full text-xs font-semibold"
+                    </div>
+                  </div>
+
+                  <p style={{ color: "var(--muted-foreground)", fontSize: "11px", marginBottom: 10, textAlign: "center" }}>
+                    {isActive ? "Viewing full bill below" : "Click to open full bill"}
+                  </p>
+
+                  <div
+                    className="grid grid-cols-3 gap-1 pt-3"
+                    style={{ borderTop: "1px solid var(--border)" }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {[
+                      { icon: Link2, label: "Copy", action: () => copyLink(bill.id), active: linkCopied === bill.id },
+                      { icon: Copy, label: "Duplicate", action: () => void duplicateBill(bill.id) },
+                      { icon: Check, label: "Paid", action: () => void markBillComplete(bill.id) },
+                      { icon: ExternalLink, label: "Public", action: () => { void setActiveBillId(bill.id).then(() => onShareView?.()); } },
+                      { icon: Download, label: "PDF", action: () => { void setActiveBillId(bill.id).then(handleExportPdf); } },
+                      { icon: Trash2, label: "Delete", action: () => { if (confirm(`Delete ${bill.month}?`)) void deleteBill(bill.id); } },
+                    ].map(({ icon: Icon, label, action, active }) => (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={action}
+                        className="flex flex-col items-center gap-1 py-2 rounded-xl transition-all active:scale-95"
                         style={{
-                          background: complete ? "#ECFDF5" : "#FFFBEB",
-                          color: complete ? "#059669" : "#D97706",
+                          background: active ? "#ECFDF5" : "transparent",
                         }}
                       >
-                        {complete ? "Completed" : "Open"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1">
-                        {[
-                          { icon: Link2, title: "Copy link", action: () => copyLink(bill.id), active: linkCopied === bill.id },
-                          { icon: Edit2, title: "View / Edit", action: () => void setActiveBillId(bill.id) },
-                          { icon: Copy, title: "Duplicate", action: () => void duplicateBill(bill.id) },
-                          { icon: Check, title: "Mark paid", action: () => void markBillComplete(bill.id) },
-                          { icon: Download, title: "Download PDF", action: () => { void setActiveBillId(bill.id).then(handleExportPdf); } },
-                          { icon: Trash2, title: "Delete", action: () => { if (confirm(`Delete ${bill.month}?`)) void deleteBill(bill.id); } },
-                        ].map(({ icon: Icon, title, action, active }) => (
-                          <button
-                            key={title}
-                            type="button"
-                            title={title}
-                            onClick={action}
-                            className="w-8 h-8 flex items-center justify-center rounded-lg transition-all active:scale-95"
-                            style={{
-                              background: active ? "#ECFDF5" : "var(--muted)",
-                              color: active ? "#059669" : "var(--muted-foreground)",
-                            }}
-                          >
-                            <Icon size={13} />
-                          </button>
-                        ))}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                        <div
+                          className="w-8 h-8 flex items-center justify-center rounded-lg"
+                          style={{
+                            background: active ? "#D1FAE5" : "var(--muted)",
+                            color: active ? "#059669" : "var(--muted-foreground)",
+                          }}
+                        >
+                          <Icon size={13} />
+                        </div>
+                        <span style={{ fontSize: "9px", fontWeight: 600, color: "var(--muted-foreground)" }}>
+                          {label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -370,6 +407,66 @@ export function BillDetailsPage({ onBack, onShareView }: BillDetailsPageProps) {
 
           {collectionSummary && <CollectionSummaryCard summary={collectionSummary} />}
 
+          {activeBill.parkingSnapshot && getActiveParkingAssignments(activeBill.parkingSnapshot, activeBill.selectedRoommateIds).length > 0 && (
+            <div
+              className="rounded-2xl overflow-hidden"
+              style={{ background: "var(--card)", border: "1px solid var(--border)", boxShadow: "0 2px 20px rgba(79,70,229,0.06)" }}
+            >
+              <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: "1px solid var(--border)", background: "var(--muted)" }}>
+                <Car size={16} style={{ color: "#0D9488" }} />
+                <div>
+                  <h3 style={{ color: "var(--foreground)", fontWeight: 700, fontSize: "15px" }}>Parking Assignments</h3>
+                  <p style={{ color: "var(--muted-foreground)", fontSize: "11px", marginTop: 2 }}>
+                    {activeBill.parkingSnapshot.parkingIncludedInRent
+                      ? "Fees deducted from rent before splitting"
+                      : "Fees added on top of rent share"}
+                  </p>
+                </div>
+              </div>
+              <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {getActiveParkingAssignments(activeBill.parkingSnapshot, activeBill.selectedRoommateIds).map((a) => {
+                  const assignee = getRoommateById(roommates, a.roommateId!);
+                  const shareLabel = formatParkingShareLabel(a, activeBill.selectedRoommateIds, roommates);
+                  const sharerCount = a.shareSpace ? activeBill.selectedRoommateIds.length : 1;
+                  const perPerson = sharerCount > 0 ? a.monthlyFee / sharerCount : 0;
+                  return (
+                    <div
+                      key={a.spotName}
+                      className="p-4 rounded-xl"
+                      style={{ background: "var(--muted)", border: "1px solid var(--border)" }}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p style={{ fontWeight: 600, fontSize: "13px" }}>{a.spotName}</p>
+                          <p style={{ color: "var(--muted-foreground)", fontSize: "11px", marginTop: 2 }}>
+                            Assigned: {assignee?.name.split(" ")[0] ?? "—"}
+                          </p>
+                        </div>
+                        <span style={{ color: "#0D9488", fontWeight: 700, fontSize: "14px" }}>
+                          ${a.monthlyFee}/mo
+                        </span>
+                      </div>
+                      {a.shareSpace ? (
+                        <div className="px-3 py-2 rounded-lg" style={{ background: "#ECFDF5", border: "1px solid rgba(16,185,129,0.15)" }}>
+                          <p style={{ color: "#059669", fontSize: "11px", fontWeight: 600 }}>
+                            Share Space — {shareLabel}
+                          </p>
+                          <p style={{ color: "#64748B", fontSize: "10px", marginTop: 2 }}>
+                            ${perPerson.toFixed(2)} per member
+                          </p>
+                        </div>
+                      ) : (
+                        <p style={{ color: "var(--muted-foreground)", fontSize: "11px" }}>
+                          Exclusive — {assignee?.name.split(" ")[0]} pays full ${a.monthlyFee}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Side-by-side expenses and roommates */}
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
             <div
@@ -446,8 +543,10 @@ export function BillDetailsPage({ onBack, onShareView }: BillDetailsPageProps) {
                           <div style={{ fontWeight: 600, fontSize: "13px" }}>{r.name}</div>
                           <div style={{ color: "var(--muted-foreground)", fontSize: "11px" }}>
                             Rent {formatAmount(r.calc.rentShare, roundUp)}
-                            {r.calc.expenseShare > 0 && ` · Exp ${formatAmount(r.calc.expenseShare, roundUp)}`}
-                            {r.calc.parkingShare > 0 && ` · Parking ${formatAmount(r.calc.parkingShare, roundUp)}`}
+                            {r.calc.expenseShare > 0 && ` + Exp ${formatAmount(r.calc.expenseShare, roundUp)}`}
+                            {r.calc.parkingShare > 0 && ` + Parking ${formatAmount(r.calc.parkingShare, roundUp)}`}
+                            {" = "}
+                            <strong style={{ color: "var(--foreground)" }}>{formatAmount(r.calc.total, roundUp)}</strong>
                           </div>
                         </div>
                         <div className="text-right">

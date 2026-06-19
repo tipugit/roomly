@@ -13,7 +13,7 @@ import { SharedBillPage } from "@/components/SharedBillPage";
 import { AnalyticsPage } from "@/components/AnalyticsPage";
 import { SettingsPage } from "@/components/SettingsPage";
 import { Loader2 } from "lucide-react";
-import { parseHashRoute } from "@/lib/share";
+import { useHashRoute } from "@/hooks/useHashRoute";
 
 function LoadingScreen() {
   return (
@@ -91,7 +91,7 @@ function AuthenticatedApp() {
 
 function RootGate() {
   const { user, loading } = useAuth();
-  const { page } = parseHashRoute();
+  const { page } = useHashRoute();
   const isPublicShare = page === "shared-bill";
   const isAuthPage = page === "login" || page === "register";
 
