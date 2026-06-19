@@ -267,9 +267,10 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
               <Home size={32} className="text-white" />
             </div>
             <h1 className="text-white mb-1" style={{ fontSize: "30px", fontWeight: 900, letterSpacing: "-0.5px" }}>
-              {displayHouseName}
+              {bill.title || displayHouseName}
             </h1>
-            <p style={{ color: "rgba(255,255,255,0.65)", fontSize: "13px", marginBottom: 16 }}>{address}</p>
+            <p style={{ color: "rgba(255,255,255,0.65)", fontSize: "13px", marginBottom: 4 }}>{displayHouseName}</p>
+            <p style={{ color: "rgba(255,255,255,0.45)", fontSize: "12px", marginBottom: 16 }}>{address}</p>
             <div className="flex items-center justify-center gap-3 flex-wrap">
               <span
                 className="px-4 py-1.5 rounded-full font-semibold"

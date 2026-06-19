@@ -1,5 +1,6 @@
 import type { AppState, Bill, Expense, Roommate } from "@/types";
 import { buildRoommateShares, buildParkingSnapshotFromSettings, getAvatarStyle, getInitials } from "@/lib/utils";
+import { todayISO } from "@/lib/memberDates";
 
 const roommates: Roommate[] = [
   {
@@ -9,7 +10,7 @@ const roommates: Roommate[] = [
     phone: "+1 (555) 012-3456",
     email: "alex.johnson@gmail.com",
     status: "Active",
-    joinDate: "Jan 2026",
+    joinDate: "2026-01-15",
     share: "$690",
     initials: "AJ",
     avatarGrad: "linear-gradient(135deg, #4F46E5, #7C3AED)",
@@ -24,7 +25,7 @@ const roommates: Roommate[] = [
     phone: "+1 (555) 023-4567",
     email: "sarah.w@gmail.com",
     status: "Active",
-    joinDate: "Feb 2026",
+    joinDate: "2026-02-01",
     share: "$690",
     initials: "SW",
     avatarGrad: "linear-gradient(135deg, #06B6D4, #0891B2)",
@@ -39,7 +40,7 @@ const roommates: Roommate[] = [
     phone: "+1 (555) 034-5678",
     email: "marcus.chen@gmail.com",
     status: "Active",
-    joinDate: "Jan 2026",
+    joinDate: "2026-01-15",
     share: "$690",
     initials: "MC",
     avatarGrad: "linear-gradient(135deg, #10B981, #059669)",
@@ -54,7 +55,7 @@ const roommates: Roommate[] = [
     phone: "+1 (555) 045-6789",
     email: "emma.davis@gmail.com",
     status: "Pending",
-    joinDate: "Jun 2026",
+    joinDate: "2026-06-01",
     share: "$690",
     initials: "ED",
     avatarGrad: "linear-gradient(135deg, #F59E0B, #D97706)",
@@ -69,7 +70,8 @@ const roommates: Roommate[] = [
     phone: "+1 (555) 056-7890",
     email: "james.w@gmail.com",
     status: "Inactive",
-    joinDate: "Mar 2026",
+    joinDate: "2026-03-01",
+    moveOutDate: "2026-05-31",
     share: "$690",
     initials: "JW",
     avatarGrad: "linear-gradient(135deg, #8B5CF6, #7C3AED)",
@@ -125,6 +127,7 @@ const parkingSnapshot = buildParkingSnapshotFromSettings(demoSettings);
 
 const juneBill: Bill = {
   id: "bill-june-2026",
+  title: "June 2026",
   month: "June 2026",
   houseName: "Sunset House",
   rent: 3000,
@@ -166,6 +169,9 @@ export function createRoommateFromForm(data: {
   email: string;
   occupation: string;
   status: Roommate["status"];
+  joinDate?: string;
+  moveOutDate?: string;
+  note?: string;
 }, id: number, index: number): Roommate {
   const style = getAvatarStyle(index);
   return {
@@ -175,7 +181,9 @@ export function createRoommateFromForm(data: {
     phone: data.phone,
     email: data.email,
     status: data.status,
-    joinDate: new Date().toLocaleDateString("en-US", { month: "short", year: "numeric" }),
+    joinDate: data.joinDate || todayISO(),
+    moveOutDate: data.moveOutDate,
+    note: data.note,
     share: "$690",
     initials: getInitials(data.name),
     avatarGrad: style.grad,

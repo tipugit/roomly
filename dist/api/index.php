@@ -148,9 +148,10 @@ if ($route === 'roommates' && $method === 'POST') {
     $color = $colors[$idx % count($colors)];
 
     $stmt = $db->prepare(
-        'INSERT INTO roommates (house_id, name, room, phone, email, status, occupation, join_date, share_label, initials, avatar_grad, pay_status, color)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO roommates (house_id, name, room, phone, email, status, occupation, join_date, move_out_date, note, share_label, initials, avatar_grad, pay_status, color)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     );
+    $joinDate = trim($body['joinDate'] ?? '') ?: date('Y-m-d');
     $stmt->execute([
         $auth['house_id'],
         $name,
@@ -159,7 +160,9 @@ if ($route === 'roommates' && $method === 'POST') {
         $body['email'] ?? '',
         $body['status'] ?? 'Active',
         $body['occupation'] ?? '',
-        date('M Y'),
+        $joinDate,
+        trim($body['moveOutDate'] ?? ''),
+        trim($body['note'] ?? ''),
         '$0',
         $initials,
         $color[1],
@@ -188,6 +191,7 @@ if (preg_match('#^roommates/(\d+)$#', $route, $m)) {
             'status' => 'status', 'occupation' => 'occupation', 'share' => 'share_label',
             'payStatus' => 'pay_status', 'color' => 'color', 'avatarGrad' => 'avatar_grad',
             'initials' => 'initials', 'joinDate' => 'join_date',
+            'moveOutDate' => 'move_out_date', 'note' => 'note',
         ];
         foreach ($map as $jsonKey => $col) {
             if (array_key_exists($jsonKey, $body)) {
@@ -221,6 +225,7 @@ if ($route === 'bills' && $method === 'POST') {
     $body = json_input();
     $billId = 'bill-' . time() . '-' . bin2hex(random_bytes(4));
     $month = $body['month'] ?? '';
+    $title = trim($body['title'] ?? '');
     $houseName = $body['houseName'] ?? '';
     $rent = (float) ($body['rent'] ?? 0);
     $expenses = $body['expenses'] ?? [];
@@ -240,12 +245,13 @@ if ($route === 'bills' && $method === 'POST') {
     $db->beginTransaction();
     try {
         $stmt = $db->prepare(
-            'INSERT INTO bills (id, house_id, month_label, house_name, rent, selected_roommate_ids, announcement_title, announcement_message, parking_snapshot) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO bills (id, house_id, month_label, title, house_name, rent, selected_roommate_ids, announcement_title, announcement_message, parking_snapshot) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
         $stmt->execute([
             $billId,
             $auth['house_id'],
             $month,
+            $title !== '' ? $title : null,
             $houseName,
             $rent,
             json_encode($selected),

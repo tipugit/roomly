@@ -1,15 +1,17 @@
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import {
   Plus,
   Trash2,
   Calculator,
   CheckCircle2,
+  Check,
   Info,
   Sparkles,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { ExpenseMemberSelector } from "@/components/ExpenseMemberSelector";
 import type { Expense } from "@/types";
+import { formatMonthYear, isRoommateEligibleForBill } from "@/lib/memberDates";
 import {
   buildParkingSnapshotFromSettings,
   buildMemberShareBreakdown,
@@ -29,30 +31,23 @@ const expenseCategories = [
   "Other",
 ];
 
-const monthOptions = [
-  "January 2026",
-  "February 2026",
-  "March 2026",
-  "April 2026",
-  "May 2026",
-  "June 2026",
-  "July 2026",
-  "August 2026",
-  "September 2026",
-  "October 2026",
-  "November 2026",
-  "December 2026",
-  "Extra Bill",
-];
-
 interface FormExpense {
   id: number;
   name: string;
   amount: string;
-  paidBy: number;
+  paidBy: number | null;
   category: string;
   shareMode: "all" | "selected";
   sharedBy: number[];
+}
+
+function buildMonthOptions(): string[] {
+  const year = new Date().getFullYear();
+  const months = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+  ];
+  return [...months.map((m) => `${m} ${year}`), "Extra Bill"];
 }
 
 function SectionCard({
@@ -73,42 +68,35 @@ function SectionCard({
         boxShadow: "0 2px 20px rgba(79,70,229,0.06)",
       }}
     >
-      <div
-        className="px-6 py-4"
-        style={{ borderBottom: "1px solid var(--border)", background: "var(--muted)" }}
-      >
-        <h3 style={{ color: "var(--foreground)", fontWeight: 700, fontSize: "15px" }}>
-          {title}
-        </h3>
-        {subtitle && (
-          <p style={{ color: "var(--muted-foreground)", fontSize: "12px", marginTop: 2 }}>
-            {subtitle}
-          </p>
-        )}
+      <div className="px-6 py-4" style={{ borderBottom: "1px solid var(--border)", background: "var(--muted)" }}>
+        <h3 style={{ color: "var(--foreground)", fontWeight: 700, fontSize: "15px" }}>{title}</h3>
+        {subtitle && <p style={{ color: "var(--muted-foreground)", fontSize: "12px", marginTop: 2 }}>{subtitle}</p>}
       </div>
       <div className="p-6">{children}</div>
     </div>
   );
 }
 
+const monthOptions = buildMonthOptions();
+
 export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
-  const { roommates, settings, createBill, showToast } = useApp();
+  const { roommates, settings, createBill, showToast, editingBill, setEditingBill } = useApp();
 
-  const defaultPaidBy = roommates[0]?.id ?? 1;
-
-  const [month, setMonth] = useState("June 2026");
-  const [extraBillMonth, setExtraBillMonth] = useState("June 2026");
+  const defaultMonth = formatMonthYear();
+  const [month, setMonth] = useState(defaultMonth);
+  const [extraBillMonth, setExtraBillMonth] = useState(defaultMonth);
   const isExtraBill = month === "Extra Bill";
+  const [billTitle, setBillTitle] = useState(defaultMonth);
   const [houseName, setHouseName] = useState(settings.houseName);
   const [rent, setRent] = useState("3000");
   const [expenses, setExpenses] = useState<FormExpense[]>([
-    { id: 1, name: "Internet", amount: "80", paidBy: 2, category: "Internet", shareMode: "all", sharedBy: [] },
-    { id: 2, name: "Electricity", amount: "120", paidBy: 1, category: "Electricity", shareMode: "all", sharedBy: [] },
-    { id: 3, name: "Water", amount: "60", paidBy: 3, category: "Water", shareMode: "all", sharedBy: [] },
-    { id: 4, name: "Cleaning", amount: "150", paidBy: 4, category: "Cleaning", shareMode: "all", sharedBy: [] },
-    { id: 5, name: "Supplies", amount: "40", paidBy: 5, category: "Supplies", shareMode: "all", sharedBy: [] },
+    { id: 1, name: "Internet", amount: "80", paidBy: null, category: "Internet", shareMode: "all", sharedBy: [] },
+    { id: 2, name: "Electricity", amount: "120", paidBy: null, category: "Electricity", shareMode: "all", sharedBy: [] },
+    { id: 3, name: "Water", amount: "60", paidBy: null, category: "Water", shareMode: "all", sharedBy: [] },
   ]);
-  const [selected, setSelected] = useState<number[]>(() => roommates.map((r) => r.id));
+  const [selected, setSelected] = useState<number[]>(() =>
+    roommates.filter((r) => r.status === "Active").map((r) => r.id)
+  );
   const [announcementTitle, setAnnouncementTitle] = useState("");
   const [announcementMessage, setAnnouncementMessage] = useState("");
   const [saved, setSaved] = useState(false);
@@ -120,7 +108,7 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
         id: Date.now(),
         name: "",
         amount: "",
-        paidBy: defaultPaidBy,
+        paidBy: null,
         category: "Other",
         shareMode: "all",
         sharedBy: [],
@@ -130,15 +118,78 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
   const removeExpense = (id: number) =>
     setExpenses((prev) => prev.filter((e) => e.id !== id));
 
-  const updateExpense = (id: number, field: keyof FormExpense, value: string | number) =>
+  const updateExpense = (id: number, field: keyof FormExpense, value: string | number | null) =>
     setExpenses((prev) =>
       prev.map((e) => (e.id === id ? { ...e, [field]: value } : e))
     );
 
-  const toggleRoommate = (id: number) =>
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+  const toggleRoommate = (id: number) => {
+    setSelected((prev) => {
+      const removing = prev.includes(id);
+      const next = removing ? prev.filter((i) => i !== id) : [...prev, id];
+      if (removing) {
+        setExpenses((exps) =>
+          exps.map((e) => (e.paidBy === id ? { ...e, paidBy: null } : e))
+        );
+      }
+      return next;
+    });
+  };
+
+  const billMonth = isExtraBill ? `Extra Bill — ${extraBillMonth}` : month;
+
+  useEffect(() => {
+    if (isExtraBill) {
+      setBillTitle(`Extra Bill — ${extraBillMonth}`);
+    } else {
+      setBillTitle(month);
+    }
+  }, [month, extraBillMonth, isExtraBill]);
+
+  useEffect(() => {
+    const eligible = roommates
+      .filter((r) => isRoommateEligibleForBill(r, billMonth))
+      .map((r) => r.id);
+    setSelected((prev) => {
+      const next = prev.filter((id) => eligible.includes(id));
+      const removed = prev.filter((id) => !eligible.includes(id));
+      if (removed.length > 0) {
+        setExpenses((exps) =>
+          exps.map((e) => (e.paidBy && removed.includes(e.paidBy) ? { ...e, paidBy: null } : e))
+        );
+      }
+      return next.length > 0 ? next : eligible;
+    });
+  }, [billMonth, roommates]);
+
+  useEffect(() => {
+    if (!editingBill) return;
+    const isExtra = editingBill.isExtraBill ?? editingBill.month.startsWith("Extra Bill");
+    if (isExtra) {
+      setMonth("Extra Bill");
+      setExtraBillMonth(editingBill.month.replace(/^Extra Bill\s*—\s*/, ""));
+    } else {
+      setMonth(editingBill.month);
+    }
+    setBillTitle(editingBill.title || editingBill.month);
+    setHouseName(editingBill.houseName);
+    setRent(String(editingBill.rent));
+    setExpenses(
+      editingBill.expenses.map((e) => ({
+        id: e.id,
+        name: e.name,
+        amount: String(e.amount),
+        paidBy: e.paidBy ?? null,
+        category: e.category,
+        shareMode: e.shareMode ?? "all",
+        sharedBy: e.sharedBy ?? [],
+      }))
     );
+    setSelected(editingBill.selectedRoommateIds);
+    setAnnouncementTitle(editingBill.announcementTitle ?? "");
+    setAnnouncementMessage(editingBill.announcementMessage ?? "");
+    setEditingBill(null);
+  }, [editingBill, setEditingBill]);
 
   const rentNum = parseFloat(rent) || 0;
   const extraTotal = expenses.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
@@ -148,14 +199,15 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
     id: e.id,
     name: e.name || e.category,
     amount: parseFloat(e.amount) || 0,
-    paidBy: e.paidBy,
+    paidBy: e.paidBy ?? undefined,
     category: e.category,
     shareMode: e.shareMode,
     sharedBy: e.shareMode === "selected" ? e.sharedBy : undefined,
   }));
 
   const roundUp = settings.roundUpAmounts ?? false;
-  const billMonth = isExtraBill ? `Extra Bill — ${extraBillMonth}` : month;
+
+  const eligibleRoommates = roommates.filter((r) => isRoommateEligibleForBill(r, billMonth));
 
   const roommateShares = buildRoommateShares(
     roommates,
@@ -214,6 +266,7 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
     }
 
     await createBill({
+      title: billTitle.trim() || billMonth,
       month: billMonth,
       houseName: houseName.trim(),
       rent: rentNum,
@@ -260,7 +313,24 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         <div className="lg:col-span-2 space-y-4 sm:space-y-5">
-          <SectionCard title="Billing Period" subtitle="Select the month for this bill">
+          <SectionCard title="Billing Period" subtitle="Set the bill title and billing month">
+            <div className="space-y-4">
+              <div>
+                <label style={{ color: "var(--foreground)", fontSize: "12px", fontWeight: 600, display: "block", marginBottom: 6 }}>
+                  Bill Title
+                </label>
+                <input
+                  type="text"
+                  value={billTitle}
+                  onChange={(e) => setBillTitle(e.target.value)}
+                  placeholder={billMonth}
+                  className="w-full px-4 py-3 rounded-xl outline-none"
+                  style={{ background: "var(--muted)", border: "1.5px solid var(--border)", color: "var(--foreground)", fontSize: "13px" }}
+                />
+                <p style={{ color: "var(--muted-foreground)", fontSize: "10px", marginTop: 4 }}>
+                  Defaults to the selected month — change to any label you like
+                </p>
+              </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label
@@ -352,6 +422,7 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
                   }}
                 />
               </div>
+            </div>
             </div>
           </SectionCard>
 
@@ -476,27 +547,36 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
                       />
                     </div>
                     <select
-                      value={exp.paidBy}
+                      value={exp.paidBy ?? ""}
                       onChange={(e) =>
-                        updateExpense(exp.id, "paidBy", parseInt(e.target.value, 10))
+                        updateExpense(
+                          exp.id,
+                          "paidBy",
+                          e.target.value === "" ? null : parseInt(e.target.value, 10)
+                        )
                       }
-                      className="w-20 sm:w-24 px-2 py-1.5 rounded-lg outline-none appearance-none flex-shrink-0"
+                      className="w-24 sm:w-28 px-2 py-1.5 rounded-lg outline-none appearance-none flex-shrink-0"
                       style={{
-                        background: "var(--card)",
-                        border: "1px solid var(--border)",
+                        background: exp.paidBy ? "#ECFDF5" : "#FEF2F2",
+                        border: `1px solid ${exp.paidBy ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.2)"}`,
                         color: "var(--foreground)",
                         fontSize: "12px",
                       }}
                     >
-                      {roommates.map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.name.split(" ")[0]}
-                        </option>
-                      ))}
+                      <option value="">Unpaid</option>
+                      {selected.map((id) => {
+                        const r = roommates.find((rm) => rm.id === id);
+                        if (!r) return null;
+                        return (
+                          <option key={r.id} value={r.id}>
+                            {r.name.split(" ")[0]}
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
                   <ExpenseMemberSelector
-                    roommates={roommates}
+                    roommates={selected.map((id) => roommates.find((r) => r.id === id)!).filter(Boolean)}
                     selectedIds={exp.sharedBy}
                     shareMode={exp.shareMode}
                     onShareModeChange={(mode) =>
@@ -657,42 +737,46 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
 
           <SectionCard
             title="Split Among"
-            subtitle="Choose which roommates to include in this bill"
+            subtitle="Active members eligible for this billing period"
           >
-            <div className="flex flex-wrap gap-3">
-              {roommates.map((r) => {
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {eligibleRoommates.map((r) => {
                 const isSelected = selected.includes(r.id);
                 return (
                   <button
                     key={r.id}
                     type="button"
                     onClick={() => toggleRoommate(r.id)}
-                    className="flex items-center gap-2.5 px-4 py-3 rounded-2xl transition-all duration-200"
+                    className="flex items-center gap-2.5 px-3 py-3 rounded-xl transition-all text-left"
                     style={{
-                      background: isSelected ? r.color + "15" : "var(--muted)",
+                      background: isSelected ? r.color + "12" : "var(--muted)",
                       border: `2px solid ${isSelected ? r.color : "var(--border)"}`,
                     }}
                   >
                     <div
-                      className="w-7 h-7 rounded-xl flex items-center justify-center text-white text-xs font-bold"
-                      style={{ background: isSelected ? r.color : "#94A3B8" }}
-                    >
-                      {r.initials}
-                    </div>
-                    <span
+                      className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0"
                       style={{
-                        color: isSelected ? r.color : "var(--muted-foreground)",
-                        fontSize: "13px",
-                        fontWeight: isSelected ? 600 : 400,
+                        background: isSelected ? r.color : "var(--card)",
+                        border: isSelected ? "none" : "1.5px solid var(--border)",
                       }}
                     >
-                      {r.name.split(" ")[0]}
-                    </span>
-                    {isSelected && <CheckCircle2 size={14} style={{ color: r.color }} />}
+                      {isSelected && <Check size={12} className="text-white" strokeWidth={3} />}
+                    </div>
+                    <div className="min-w-0">
+                      <div style={{ color: isSelected ? r.color : "var(--foreground)", fontSize: "12px", fontWeight: isSelected ? 700 : 500 }} className="truncate">
+                        {r.name.split(" ")[0]}
+                      </div>
+                      <div style={{ color: "var(--muted-foreground)", fontSize: "9px" }}>Room {r.room}</div>
+                    </div>
                   </button>
                 );
               })}
             </div>
+            {roommates.length > eligibleRoommates.length && (
+              <p style={{ color: "var(--muted-foreground)", fontSize: "11px", marginTop: 8 }}>
+                {roommates.length - eligibleRoommates.length} member(s) hidden — inactive or not yet joined for this month
+              </p>
+            )}
             <div
               className="mt-4 flex items-center gap-2 px-3 py-2 rounded-xl"
               style={{ background: "#EEF2FF" }}
@@ -752,7 +836,7 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
               {expenses
                 .filter((e) => e.name || parseFloat(e.amount))
                 .map((e) => {
-                  const payer = roommates.find((r) => r.id === e.paidBy);
+                  const payer = e.paidBy ? roommates.find((r) => r.id === e.paidBy) : null;
                   return (
                     <div key={e.id} className="flex justify-between items-start">
                       <div>

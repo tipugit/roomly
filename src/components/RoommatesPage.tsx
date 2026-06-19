@@ -14,6 +14,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
+import { formatMemberDate, todayISO } from "@/lib/memberDates";
 import type { Roommate, RoommateStatus } from "@/types";
 
 const STATUS_ORDER: RoommateStatus[] = ["Active", "Pending", "Inactive"];
@@ -41,6 +42,8 @@ interface AddModalProps {
     email: string;
     occupation: string;
     status: RoommateStatus;
+    joinDate: string;
+    note?: string;
   }) => void;
 }
 
@@ -51,6 +54,8 @@ function AddModal({ onClose, onAdd }: AddModalProps) {
   const [email, setEmail] = useState("");
   const [occupation, setOccupation] = useState("");
   const [status, setStatus] = useState<RoommateStatus>("Active");
+  const [joinDate, setJoinDate] = useState(todayISO());
+  const [note, setNote] = useState("");
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -62,6 +67,8 @@ function AddModal({ onClose, onAdd }: AddModalProps) {
       email: email.trim() || "—",
       occupation: occupation.trim() || "—",
       status,
+      joinDate,
+      note: note.trim() || undefined,
     });
   };
 
@@ -220,6 +227,35 @@ function AddModal({ onClose, onAdd }: AddModalProps) {
               />
             </div>
             <div>
+              <label style={{ color: "var(--foreground)", fontSize: "12px", fontWeight: 600, display: "block", marginBottom: 6 }}>
+                Member Since
+              </label>
+              <input
+                type="date"
+                required
+                value={joinDate}
+                onChange={(e) => setJoinDate(e.target.value)}
+                className={inputClass}
+                style={inputStyle}
+              />
+              <p style={{ color: "var(--muted-foreground)", fontSize: "10px", marginTop: 4 }}>
+                Only bills from this date onward will include this member
+              </p>
+            </div>
+            <div>
+              <label style={{ color: "var(--foreground)", fontSize: "12px", fontWeight: 600, display: "block", marginBottom: 6 }}>
+                Note (optional)
+              </label>
+              <textarea
+                rows={2}
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="e.g. Has a cat, prefers ground floor..."
+                className={`${inputClass} resize-none`}
+                style={inputStyle}
+              />
+            </div>
+            <div>
               <label
                 style={{
                   color: "var(--foreground)",
@@ -287,6 +323,11 @@ function EditModal({
   const [email, setEmail] = useState(roommate.email);
   const [occupation, setOccupation] = useState(roommate.occupation);
   const [status, setStatus] = useState(roommate.status);
+  const [joinDate, setJoinDate] = useState(roommate.joinDate || todayISO());
+  const [moveOutDate, setMoveOutDate] = useState(roommate.moveOutDate ?? "");
+  const [note, setNote] = useState(roommate.note ?? "");
+  const [showMoveOut, setShowMoveOut] = useState(false);
+  const [moveOutDraft, setMoveOutDraft] = useState(todayISO());
 
   const inputStyle = {
     background: "var(--muted)",
@@ -329,6 +370,19 @@ function EditModal({
             </div>
           ))}
           <div>
+            <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: 6 }}>Member Since</label>
+            <input type="date" value={joinDate} onChange={(e) => setJoinDate(e.target.value)} className="w-full px-4 py-2.5 rounded-xl outline-none" style={inputStyle} />
+          </div>
+          {moveOutDate && (
+            <div className="p-3 rounded-xl" style={{ background: "#F1F5F9", border: "1px solid var(--border)" }}>
+              <p style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>Moved out: {formatMemberDate(moveOutDate)}</p>
+            </div>
+          )}
+          <div>
+            <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: 6 }}>Note</label>
+            <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} className="w-full px-4 py-2.5 rounded-xl outline-none resize-none" style={inputStyle} />
+          </div>
+          <div>
             <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: 6 }}>Status</label>
             <select value={status} onChange={(e) => setStatus(e.target.value as RoommateStatus)} className="w-full px-4 py-2.5 rounded-xl outline-none appearance-none" style={inputStyle}>
               <option value="Active">Active</option>
@@ -336,12 +390,43 @@ function EditModal({
               <option value="Inactive">Inactive</option>
             </select>
           </div>
+          {roommate.status !== "Inactive" && !showMoveOut && (
+            <button
+              type="button"
+              onClick={() => setShowMoveOut(true)}
+              className="w-full py-2.5 rounded-xl font-semibold text-sm"
+              style={{ background: "#FEF2F2", color: "#EF4444", border: "1px solid rgba(239,68,68,0.2)" }}
+            >
+              Record Move Out
+            </button>
+          )}
+          {showMoveOut && (
+            <div className="p-4 rounded-xl space-y-3" style={{ background: "#FEF2F2", border: "1px solid rgba(239,68,68,0.15)" }}>
+              <p style={{ fontSize: "12px", fontWeight: 600, color: "#EF4444" }}>Move-out date</p>
+              <input type="date" value={moveOutDraft} onChange={(e) => setMoveOutDraft(e.target.value)} className="w-full px-4 py-2.5 rounded-xl outline-none" style={inputStyle} />
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setShowMoveOut(false)} className="flex-1 py-2 rounded-lg text-xs font-semibold" style={{ background: "var(--muted)" }}>Cancel</button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMoveOutDate(moveOutDraft);
+                    setStatus("Inactive");
+                    setShowMoveOut(false);
+                  }}
+                  className="flex-1 py-2 rounded-lg text-xs font-semibold text-white"
+                  style={{ background: "#EF4444" }}
+                >
+                  Confirm Move Out
+                </button>
+              </div>
+            </div>
+          )}
         </div>
         <div className="px-7 py-5 flex gap-3" style={{ borderTop: "1px solid var(--border)" }}>
           <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl font-semibold" style={{ background: "var(--muted)", fontSize: "13px" }}>Cancel</button>
           <button
             type="button"
-            onClick={() => onSave({ name, room, phone, email, occupation, status })}
+            onClick={() => onSave({ name, room, phone, email, occupation, status, joinDate, moveOutDate: moveOutDate || undefined, note: note || undefined })}
             className="flex-1 py-2.5 rounded-xl font-semibold text-white"
             style={{ background: "linear-gradient(135deg, #4F46E5, #7C3AED)", fontSize: "13px" }}
           >
@@ -380,7 +465,9 @@ function ViewModal({ roommate, onClose }: { roommate: Roommate; onClose: () => v
               ["Email", roommate.email],
               ["Status", roommate.status],
               ["Monthly share", roommate.share],
-              ["Member since", roommate.joinDate],
+              ["Member since", formatMemberDate(roommate.joinDate)],
+              ...(roommate.moveOutDate ? [["Moved out", formatMemberDate(roommate.moveOutDate)] as const] : []),
+              ...(roommate.note ? [["Note", roommate.note] as const] : []),
             ].map(([k, v]) => (
               <div key={k} className="flex justify-between py-2" style={{ borderBottom: "1px solid var(--border)" }}>
                 <span style={{ color: "var(--muted-foreground)", fontSize: "12px" }}>{k}</span>
@@ -710,7 +797,7 @@ export function RoommatesPage() {
                       SINCE
                     </div>
                     <div style={{ color: "var(--foreground)", fontSize: "12px", fontWeight: 600 }}>
-                      {r.joinDate}
+                      {formatMemberDate(r.joinDate)}
                     </div>
                   </div>
                 </div>

@@ -26,6 +26,8 @@ export interface Roommate {
   email: string;
   status: RoommateStatus;
   joinDate: string;
+  moveOutDate?: string;
+  note?: string;
   share: string;
   initials: string;
   avatarGrad: string;
@@ -73,6 +75,7 @@ export interface RoommateShare {
 
 export interface Bill {
   id: string;
+  title?: string;
   month: string;
   houseName: string;
   rent: number;

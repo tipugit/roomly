@@ -146,6 +146,8 @@ function map_roommate_row(array $row): array
         'email' => $row['email'],
         'status' => $row['status'],
         'joinDate' => $row['join_date'],
+        'moveOutDate' => $row['move_out_date'] ?? '',
+        'note' => $row['note'] ?? '',
         'share' => $row['share_label'],
         'initials' => $row['initials'],
         'avatarGrad' => $row['avatar_grad'],
@@ -238,6 +240,7 @@ function fetch_full_state(PDO $db, int $houseId): array
 
         $bills[] = [
             'id' => $billId,
+            'title' => $billRow['title'] ?? '',
             'month' => $billRow['month_label'],
             'houseName' => $billRow['house_name'],
             'rent' => (float) $billRow['rent'],

@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { SearchModal } from "@/components/SearchModal";
+import { SiteFooter } from "@/components/SiteFooter";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", id: "dashboard", badgeKey: null as string | null },
@@ -80,26 +81,30 @@ export function Layout({ children, activePage }: LayoutProps) {
           boxShadow: "6px 0 32px rgba(79,70,229,0.07)",
         }}
       >
-        <button
-          type="button"
-          onClick={() => { navigate("dashboard"); setSidebarOpen(false); }}
-          className="flex items-center gap-3 px-5 py-5 w-full text-left transition-opacity hover:opacity-90"
+        <div
+          className="flex items-center gap-3 px-5 py-5 w-full"
           style={{ borderBottom: "1px solid var(--sidebar-border)" }}
         >
-          <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: "linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)", boxShadow: "0 4px 12px rgba(79,70,229,0.4)" }}
+          <button
+            type="button"
+            onClick={() => { navigate("dashboard"); setSidebarOpen(false); }}
+            className="flex items-center gap-3 flex-1 min-w-0 text-left transition-opacity hover:opacity-90"
           >
-            <Home size={17} className="text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div style={{ color: "var(--foreground)", fontWeight: 700, fontSize: "16px", letterSpacing: "-0.3px" }}>Roomly</div>
-            <div style={{ color: "var(--muted-foreground)", fontSize: "10px", letterSpacing: "0.5px" }}>MANAGEMENT SYSTEM</div>
-          </div>
-          <button type="button" className="lg:hidden p-1" onClick={(e) => { e.stopPropagation(); setSidebarOpen(false); }}>
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: "linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)", boxShadow: "0 4px 12px rgba(79,70,229,0.4)" }}
+            >
+              <Home size={17} className="text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div style={{ color: "var(--foreground)", fontWeight: 700, fontSize: "16px", letterSpacing: "-0.3px" }}>Roomly</div>
+              <div style={{ color: "var(--muted-foreground)", fontSize: "10px", letterSpacing: "0.5px" }}>MANAGEMENT SYSTEM</div>
+            </div>
+          </button>
+          <button type="button" className="lg:hidden p-1 flex-shrink-0" onClick={() => setSidebarOpen(false)}>
             <X size={16} style={{ color: "var(--muted-foreground)" }} />
           </button>
-        </button>
+        </div>
 
         <div className="px-4 py-4">
           <button
@@ -343,11 +348,14 @@ export function Layout({ children, activePage }: LayoutProps) {
         </header>
 
         <main
-          className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-6 pb-20 lg:pb-6"
+          className="flex-1 overflow-y-auto flex flex-col"
           style={{ scrollbarWidth: "none" }}
           onClick={() => { setProfileOpen(false); setNotifOpen(false); }}
         >
-          {children}
+          <div className="flex-1 px-4 sm:px-6 py-4 sm:py-6 pb-20 lg:pb-6">
+            {children}
+          </div>
+          <SiteFooter variant="app" />
         </main>
 
         <nav

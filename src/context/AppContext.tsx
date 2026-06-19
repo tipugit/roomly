@@ -61,10 +61,14 @@ interface AppContextValue {
     email: string;
     occupation: string;
     status: Roommate["status"];
+    joinDate?: string;
+    moveOutDate?: string;
+    note?: string;
   }) => Promise<void>;
   updateRoommate: (id: number, data: Partial<Roommate>) => Promise<void>;
   deleteRoommate: (id: number) => Promise<void>;
   createBill: (data: {
+    title?: string;
     month: string;
     houseName: string;
     rent: number;
@@ -75,6 +79,8 @@ interface AppContextValue {
     parkingSnapshot?: import("@/types").ParkingSnapshot | null;
     isExtraBill?: boolean;
   }) => Promise<Bill | null>;
+  editingBill: Bill | null;
+  setEditingBill: (bill: Bill | null) => void;
   deleteBill: (id: string) => Promise<void>;
   duplicateBill: (id: string) => Promise<void>;
   markBillComplete: (id: string) => Promise<void>;
@@ -113,6 +119,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [sharedPayload, setSharedPayload] = useState<SharePayload | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [editingBill, setEditingBill] = useState<Bill | null>(null);
 
   const applyState = useCallback(
     (next: typeof state) => {
@@ -281,6 +288,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       );
       try {
         const res = await api.createBill({
+          title: data.title ?? "",
           month: data.month,
           houseName: data.houseName,
           rent: data.rent,
@@ -454,6 +462,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     updateRoommate,
     deleteRoommate,
     createBill,
+    editingBill,
+    setEditingBill,
     deleteBill,
     duplicateBill,
     markBillComplete,

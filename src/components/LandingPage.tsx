@@ -15,12 +15,12 @@ import {
   demoBill,
   demoExpenses,
   demoHouse,
-  demoRoommates,
   demoRent,
   demoTotal,
   getDemoMemberShares,
   openDemoBill,
 } from "@/lib/demo";
+import { SiteFooter, SITE_URL } from "@/components/SiteFooter";
 
 const features = [
   {
@@ -91,16 +91,25 @@ export function LandingPage() {
       >
         <div className="max-w-6xl mx-auto px-5 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center"
-              style={{
-                background: "linear-gradient(135deg, #4F46E5, #7C3AED)",
-                boxShadow: "0 4px 12px rgba(79,70,229,0.3)",
-              }}
+            <button
+              type="button"
+              onClick={() => { window.location.hash = "#/"; }}
+              className="flex items-center gap-2.5"
             >
-              <Home size={18} className="text-white" />
-            </div>
-            <span style={{ fontWeight: 800, fontSize: "18px", letterSpacing: "-0.3px" }}>Roomly</span>
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center"
+                style={{
+                  background: "linear-gradient(135deg, #4F46E5, #7C3AED)",
+                  boxShadow: "0 4px 12px rgba(79,70,229,0.3)",
+                }}
+              >
+                <Home size={18} className="text-white" />
+              </div>
+              <div className="text-left">
+                <span style={{ fontWeight: 800, fontSize: "18px", letterSpacing: "-0.3px", display: "block" }}>Roomly</span>
+                <span style={{ fontSize: "10px", color: "#94A3B8" }}>by Otipu</span>
+              </div>
+            </button>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -169,8 +178,12 @@ export function LandingPage() {
                 </span>
               </h1>
               <p style={{ fontSize: "17px", color: "#64748B", lineHeight: 1.7, maxWidth: 480, marginBottom: 32 }}>
-                Roomly helps you manage roommates, create monthly bills, track who paid what, and share
-                beautiful bill summaries — all in one place.
+                Roomly helps shared houses split rent, track utilities, and share beautiful bills —
+                live at{" "}
+                <a href={SITE_URL} style={{ color: "#4F46E5", fontWeight: 600 }}>
+                  rent.otipu.com
+                </a>
+                .
               </p>
               <div className="flex flex-wrap gap-3 mb-8">
                 <button
@@ -231,7 +244,7 @@ export function LandingPage() {
                     Live demo preview
                   </p>
                   <h3 style={{ fontWeight: 800, fontSize: "22px", marginTop: 4 }}>{demoHouse}</h3>
-                  <p style={{ fontSize: "13px", color: "#64748B" }}>{demoBill.month} · {demoRoommates.length} roommates</p>
+                  <p style={{ fontSize: "13px", color: "#64748B" }}>{demoBill.month} · {demoBill.selectedRoommateIds.length} roommates</p>
                 </div>
                 <div
                   className="px-3 py-1.5 rounded-xl"
@@ -491,34 +504,7 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer
-        className="py-8 border-t"
-        style={{ borderColor: "rgba(79,70,229,0.08)", background: "white" }}
-      >
-        <div className="max-w-6xl mx-auto px-5 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div
-              className="w-7 h-7 rounded-lg flex items-center justify-center"
-              style={{ background: "linear-gradient(135deg, #4F46E5, #7C3AED)" }}
-            >
-              <Home size={14} className="text-white" />
-            </div>
-            <span style={{ fontWeight: 700, fontSize: "14px" }}>Roomly</span>
-          </div>
-          <p style={{ fontSize: "12px", color: "#94A3B8" }}>
-            Shared living, made simple ·{" "}
-            <button
-              type="button"
-              onClick={openDemoBill}
-              className="underline hover:opacity-80"
-              style={{ color: "#4F46E5" }}
-            >
-              View demo bill
-            </button>
-          </p>
-        </div>
-      </footer>
+      <SiteFooter variant="landing" />
     </div>
   );
 }

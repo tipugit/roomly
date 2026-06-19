@@ -168,7 +168,7 @@ const renderPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }:
 };
 
 export function DashboardPage() {
-  const { roommates, activeBill, activities, bills, navigate } = useApp();
+  const { roommates, activeBill, activities, bills, navigate, settings } = useApp();
 
   const monthlyTrend = useMemo(() => {
     if (bills.length > 1) {
@@ -350,7 +350,7 @@ export function DashboardPage() {
               letterSpacing: "-0.3px",
             }}
           >
-            Welcome back, Admin 👋
+            Welcome, {settings.adminName?.split(" ")[0] || "there"} 👋
           </h1>
           <p style={{ color: "rgba(255,255,255,0.65)", fontSize: "13px", lineHeight: 1.5 }}>
             {shareCount > 0
