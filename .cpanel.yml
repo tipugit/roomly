@@ -1,0 +1,6 @@
+---
+# Runs when you click "Deploy HEAD Commit" in cPanel Git Version Control.
+# Requires deployment path set to your live folder (e.g. public_html).
+deployment:
+  tasks:
+    - /bin/bash deploy/cpanel-deploy.sh
