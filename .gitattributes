@@ -1,0 +1,2 @@
+* text=auto eol=lf
+deploy/cpanel-deploy.sh text eol=lf

@@ -1,6 +1,9 @@
 ---
-# Runs when you click "Deploy HEAD Commit" in cPanel Git Version Control.
-# Requires deployment path set to your live folder (e.g. public_html).
 deployment:
   tasks:
-    - /bin/bash deploy/cpanel-deploy.sh
+    - /bin/bash -c 'test -f "$DEPLOYPATH/api/config.php" && cp "$DEPLOYPATH/api/config.php" /tmp/roomly-config.bak || true'
+    - /bin/cp dist/index.html $DEPLOYPATH
+    - /bin/cp dist/.htaccess $DEPLOYPATH
+    - /bin/cp -R dist/assets $DEPLOYPATH
+    - /bin/cp -R dist/api $DEPLOYPATH
+    - /bin/bash -c 'test -f /tmp/roomly-config.bak && cp /tmp/roomly-config.bak "$DEPLOYPATH/api/config.php" || true'

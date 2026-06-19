@@ -4,6 +4,48 @@ Your live site runs the **built** files in `dist/`. That folder is now committed
 
 ---
 
+## "The system cannot deploy" error
+
+cPanel requires **both**:
+
+1. A valid `.cpanel.yml` in the repo root (included in this project)
+2. A **clean working tree** on the server (no modified tracked files)
+
+### Fix uncommitted changes (most common blocker)
+
+1. **cPanel → Terminal**
+2. Go to your repo folder (same path as Git Version Control):
+   ```bash
+   cd ~/roomly
+   bash deploy/fix-git-state.sh
+   ```
+   Or manually:
+   ```bash
+   cd ~/roomly
+   git fetch origin main
+   git reset --hard origin/main
+   ```
+3. **Do not edit files** in File Manager inside the git repo after this
+4. Go back to **Git Version Control → Manage → Deploy HEAD Commit**
+
+`config.php` is untracked and safe — it will not be deleted.
+
+### Set deployment path (required once)
+
+1. **Git Version Control → Manage → Pull or Deploy**
+2. Under **Deploy your repository**, enter:
+   ```
+   /home/YOURUSER/public_html
+   ```
+3. Click **Update** / **Save**
+4. **Update from Remote**, then **Deploy HEAD Commit**
+
+### If deploy still fails
+
+Use **Method A** (point document root to `.../roomly/dist`) — no Deploy button needed.
+
+---
+
 ## Method A — No Deploy button needed (recommended if Deploy is greyed out)
 
 Use this when **Deploy HEAD Commit** is not clickable. Many Namecheap/cPanel plans work this way.
