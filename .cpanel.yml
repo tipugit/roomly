@@ -1,9 +1,4 @@
----
 deployment:
   tasks:
-    - /bin/bash -c 'test -f "$DEPLOYPATH/api/config.php" && cp "$DEPLOYPATH/api/config.php" /tmp/roomly-config.bak || true'
-    - /bin/cp dist/index.html $DEPLOYPATH
-    - /bin/cp dist/.htaccess $DEPLOYPATH
-    - /bin/cp -R dist/assets $DEPLOYPATH
-    - /bin/cp -R dist/api $DEPLOYPATH
-    - /bin/bash -c 'test -f /tmp/roomly-config.bak && cp /tmp/roomly-config.bak "$DEPLOYPATH/api/config.php" || true'
+    - export DEPLOYPATH=/home/otipwvao/rent.otipu.com/
+    - /bin/cp -R dist/* $DEPLOYPATH
