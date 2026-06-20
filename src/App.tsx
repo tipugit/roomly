@@ -13,7 +13,9 @@ import { BillViewPage } from "@/components/BillViewPage";
 import { SharedBillPage } from "@/components/SharedBillPage";
 import { AnalyticsPage } from "@/components/AnalyticsPage";
 import { SettingsPage } from "@/components/SettingsPage";
+import { AdminPage } from "@/components/AdminPage";
 import { Loader2 } from "lucide-react";
+import { useEffect } from "react";
 import { useHashRoute } from "@/hooks/useHashRoute";
 
 function LoadingScreen() {
@@ -25,8 +27,14 @@ function LoadingScreen() {
 }
 
 function AppContent() {
-  const { user } = useAuth();
+  const { user, isSuperAdmin } = useAuth();
   const { page, setPage, sharedPayload, viewBillId, openBillView, billViewRevision } = useApp();
+
+  useEffect(() => {
+    if (page === "admin" && !isSuperAdmin) {
+      setPage("dashboard");
+    }
+  }, [page, isSuperAdmin, setPage]);
 
   if (page === "shared-bill") {
     return (
@@ -73,6 +81,7 @@ function AppContent() {
         return <BillDetailsPage />;
       case "analytics": return <AnalyticsPage />;
       case "settings": return <SettingsPage />;
+      case "admin": return <AdminPage />;
       default: return <DashboardPage />;
     }
   };

@@ -39,10 +39,7 @@ if ($route === 'auth/register' && $method === 'POST') {
         $stmt->execute([$email, password_hash($password, PASSWORD_DEFAULT), $name]);
         $userId = (int) $db->lastInsertId();
 
-        $settings = default_settings($name, $email);
-        $houseStmt = $db->prepare('INSERT INTO houses (user_id, settings_json) VALUES (?, ?)');
-        $houseStmt->execute([$userId, json_encode($settings)]);
-        $houseId = (int) $db->lastInsertId();
+        $houseId = create_house_for_user($db, $userId, 'My House', $name, $email);
 
         $db->commit();
     } catch (Throwable $e) {
@@ -53,11 +50,7 @@ if ($route === 'auth/register' && $method === 'POST') {
     $_SESSION['user_id'] = $userId;
     $_SESSION['house_id'] = $houseId;
 
-    respond([
-        'ok' => true,
-        'user' => ['id' => $userId, 'name' => $name, 'email' => $email],
-        'state' => fetch_full_state($db, $houseId),
-    ]);
+    respond(auth_session_response($db, $userId, $houseId));
 }
 
 if ($route === 'auth/login' && $method === 'POST') {
@@ -65,7 +58,11 @@ if ($route === 'auth/login' && $method === 'POST') {
     $email = strtolower(trim($body['email'] ?? ''));
     $password = $body['password'] ?? '';
 
-    $stmt = $db->prepare('SELECT id, name, email, password_hash FROM users WHERE email = ? LIMIT 1');
+    $stmt = $db->prepare(
+        'SELECT id, name, email, password_hash' .
+        (schema_has_user_role($db) ? ', role' : '') .
+        ' FROM users WHERE email = ? LIMIT 1'
+    );
     $stmt->execute([$email]);
     $user = $stmt->fetch();
 
@@ -73,19 +70,13 @@ if ($route === 'auth/login' && $method === 'POST') {
         respond_error('Invalid email or password.', 401);
     }
 
-    $houseId = get_house_id($db, (int) $user['id']);
-    $_SESSION['user_id'] = (int) $user['id'];
+    $userId = (int) $user['id'];
+    $preferredHouse = isset($body['houseId']) ? (int) $body['houseId'] : null;
+    $houseId = resolve_user_house($db, $userId, $preferredHouse);
+    $_SESSION['user_id'] = $userId;
     $_SESSION['house_id'] = $houseId;
 
-    respond([
-        'ok' => true,
-        'user' => [
-            'id' => (int) $user['id'],
-            'name' => $user['name'],
-            'email' => $user['email'],
-        ],
-        'state' => fetch_full_state($db, $houseId),
-    ]);
+    respond(auth_session_response($db, $userId, $houseId));
 }
 
 if ($route === 'auth/logout' && $method === 'POST') {
@@ -102,22 +93,18 @@ if ($route === 'auth/me' && $method === 'GET') {
     if (empty($_SESSION['user_id'])) {
         respond(['ok' => true, 'user' => null]);
     }
-    $stmt = $db->prepare('SELECT id, name, email FROM users WHERE id = ?');
+    $stmt = $db->prepare(
+        'SELECT id, name, email' . (schema_has_user_role($db) ? ', role' : '') . ' FROM users WHERE id = ?'
+    );
     $stmt->execute([(int) $_SESSION['user_id']]);
     $user = $stmt->fetch();
     if (!$user) {
         respond(['ok' => true, 'user' => null]);
     }
-    $houseId = (int) $_SESSION['house_id'];
-    respond([
-        'ok' => true,
-        'user' => [
-            'id' => (int) $user['id'],
-            'name' => $user['name'],
-            'email' => $user['email'],
-        ],
-        'state' => fetch_full_state($db, $houseId),
-    ]);
+    $userId = (int) $user['id'];
+    $houseId = resolve_user_house($db, $userId, (int) ($_SESSION['house_id'] ?? 0) ?: null);
+    $_SESSION['house_id'] = $houseId;
+    respond(auth_session_response($db, $userId, $houseId));
 }
 
 // --- SYNC ---
@@ -622,6 +609,8 @@ if ($route === 'share' && $method === 'POST') {
 }
 
 // --- ACCOUNT RESET ---
+require __DIR__ . '/admin_routes.php';
+
 if ($route === 'account' && $method === 'DELETE') {
     $auth = require_auth();
     $db->beginTransaction();

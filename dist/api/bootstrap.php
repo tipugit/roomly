@@ -101,15 +101,10 @@ function default_settings(string $name, string $email): array
     ];
 }
 
-function require_auth(): array
+function app_db(): PDO
 {
-    if (empty($_SESSION['user_id'])) {
-        respond_error('Unauthorized', 401);
-    }
-    return [
-        'user_id' => (int) $_SESSION['user_id'],
-        'house_id' => (int) $_SESSION['house_id'],
-    ];
+    global $config;
+    return pdo($config);
 }
 
 function get_house_id(PDO $db, int $userId): int
@@ -295,3 +290,5 @@ function pay_status(float $paid, float $share): string
     if ($paid > 0) return 'Partial';
     return 'Pending';
 }
+
+require __DIR__ . '/multi_home.php';

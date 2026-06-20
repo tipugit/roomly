@@ -39,6 +39,7 @@ const VALID_PAGES: Page[] = [
   "settings",
   "bill-details",
   "shared-bill",
+  "admin",
 ];
 
 interface AppContextValue {
@@ -144,7 +145,7 @@ function resolveInitialPage(): {
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const { appState, setAppState, logout: authLogout } = useAuth();
+  const { appState, setAppState, logout: authLogout, activeHouseId } = useAuth();
   const initial = resolveInitialPage();
 
   const state = appState ?? initialState;
@@ -169,6 +170,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setEditingBill(null);
     setEditingBillId(null);
   }, []);
+
+  const prevHouseId = useRef<number | null>(null);
+  useEffect(() => {
+    if (activeHouseId && prevHouseId.current && prevHouseId.current !== activeHouseId) {
+      clearEditingBillSession();
+      setViewBillId(null);
+      setPageState("dashboard");
+      setHashRoute("dashboard");
+    }
+    prevHouseId.current = activeHouseId;
+  }, [activeHouseId, clearEditingBillSession]);
 
   const applyState = useCallback(
     (next: typeof state) => {

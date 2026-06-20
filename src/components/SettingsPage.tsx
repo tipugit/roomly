@@ -20,12 +20,15 @@ import {
   Users,
   FileText,
   Repeat,
+  Home,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 import { MemberCheckboxGrid } from "@/components/MemberCheckboxGrid";
 import type { ParkingAssignmentTemplate, Settings } from "@/types";
 
 const sidebarSections = [
+  { id: "homes", label: "My Homes", icon: Home, color: "#7C3AED", bg: "#F5F3FF" },
   { id: "general", label: "General", icon: Globe, color: "#4F46E5", bg: "#EEF2FF" },
   { id: "recurring", label: "Default Bill", icon: Repeat, color: "#8B5CF6", bg: "#F5F3FF" },
   { id: "message", label: "General Message", icon: MessageSquare, color: "#6366F1", bg: "#EEF2FF" },
@@ -209,6 +212,7 @@ function syncParkingAssignments(
 
 export function SettingsPage() {
   const { settings, updateSettings, showToast, exportData, importData, resetApp, roommates } = useApp();
+  const { houses, activeHouseId, switchHouse, createHouse } = useAuth();
   const [active, setActive] = useState<SectionId>("general");
   const [saved, setSaved] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -216,6 +220,8 @@ export function SettingsPage() {
   const [passwordForm, setPasswordForm] = useState({ current: "", next: "", confirm: "" });
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [feeDrafts, setFeeDrafts] = useState<Record<number, string>>({});
+  const [newHomeName, setNewHomeName] = useState("");
+  const [homeBusy, setHomeBusy] = useState(false);
 
   useEffect(() => {
     setLocalState({
@@ -302,6 +308,114 @@ export function SettingsPage() {
 
   const renderContent = () => {
     switch (active) {
+      case "homes":
+        return (
+          <div className="space-y-5">
+            <SectionCard title="Your Homes" desc="Each home has its own roommates, bills, and settings">
+              <div className="space-y-3">
+                {houses.map((house) => {
+                  const isActive = house.id === activeHouseId;
+                  return (
+                    <div
+                      key={house.id}
+                      className="flex items-center gap-3 p-4 rounded-xl"
+                      style={{
+                        background: isActive ? "rgba(79,70,229,0.08)" : "var(--muted)",
+                        border: isActive ? "1px solid rgba(79,70,229,0.25)" : "1px solid var(--border)",
+                      }}
+                    >
+                      <div
+                        className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                        style={{ background: "linear-gradient(135deg, #4F46E5, #7C3AED)" }}
+                      >
+                        <Home size={18} className="text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div style={{ fontWeight: 700, fontSize: "14px", color: "var(--foreground)" }}>{house.name}</div>
+                        <div style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
+                          {house.roommateCount ?? 0} roommates · {house.billCount ?? 0} bills · {house.role}
+                        </div>
+                      </div>
+                      {isActive ? (
+                        <span className="px-2 py-1 rounded-lg text-xs font-semibold" style={{ background: "#4F46E5", color: "white" }}>
+                          Active
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={homeBusy}
+                          onClick={async () => {
+                            setHomeBusy(true);
+                            try {
+                              await switchHouse(house.id);
+                              showToast(`Switched to ${house.name}`, "success");
+                            } catch (e) {
+                              showToast(e instanceof Error ? e.message : "Switch failed", "error");
+                            } finally {
+                              setHomeBusy(false);
+                            }
+                          }}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                          style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--foreground)" }}
+                        >
+                          Switch
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Create a new home" desc="Start fresh with separate roommates and bills">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input
+                  value={newHomeName}
+                  onChange={(e) => setNewHomeName(e.target.value)}
+                  placeholder="e.g. Downtown Apartment"
+                  className="flex-1 px-4 py-2.5 rounded-xl text-sm outline-none"
+                  style={{ background: "var(--background)", border: "1px solid var(--border)", color: "var(--foreground)" }}
+                  onKeyDown={async (e) => {
+                    if (e.key === "Enter" && newHomeName.trim()) {
+                      setHomeBusy(true);
+                      try {
+                        await createHouse(newHomeName.trim());
+                        showToast("Home created", "success");
+                        setNewHomeName("");
+                      } catch (err) {
+                        showToast(err instanceof Error ? err.message : "Failed", "error");
+                      } finally {
+                        setHomeBusy(false);
+                      }
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={homeBusy || !newHomeName.trim()}
+                  onClick={async () => {
+                    setHomeBusy(true);
+                    try {
+                      await createHouse(newHomeName.trim());
+                      showToast("Home created", "success");
+                      setNewHomeName("");
+                    } catch (err) {
+                      showToast(err instanceof Error ? err.message : "Failed", "error");
+                    } finally {
+                      setHomeBusy(false);
+                    }
+                  }}
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold disabled:opacity-50"
+                  style={{ background: "linear-gradient(135deg, #4F46E5, #7C3AED)" }}
+                >
+                  <Plus size={15} />
+                  Create home
+                </button>
+              </div>
+            </SectionCard>
+          </div>
+        );
+
       case "general":
         return (
           <div className="space-y-5">

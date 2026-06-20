@@ -1,4 +1,6 @@
-import type { AppState } from "@/types";
+import type { AppState, HouseSummary, AdminUser, AdminHouse, AdminStats, UserRole, AuthUser } from "@/types";
+
+export type { AuthUser } from "@/types";
 
 export class ApiError extends Error {
   status: number;
@@ -15,16 +17,20 @@ function routeUrl(route: string): string {
   return `${base}?route=${encodeURIComponent(route)}`;
 }
 
-export interface AuthUser {
-  id: number;
-  name: string;
-  email: string;
+interface AuthPayload {
+  ok: true;
+  user: AuthUser;
+  houses?: HouseSummary[];
+  activeHouseId?: number;
+  state: AppState;
 }
 
 interface ApiResponse {
   ok: boolean;
   error?: string;
   user?: AuthUser | null;
+  houses?: HouseSummary[];
+  activeHouseId?: number;
   state?: AppState;
 }
 
@@ -53,16 +59,17 @@ async function request<T>(route: string, options: RequestInit = {}): Promise<T> 
 }
 
 export const api = {
-  me: () => request<{ ok: true; user: AuthUser | null; state?: AppState }>("auth/me"),
+  me: () =>
+    request<{ ok: true; user: AuthUser | null; houses?: HouseSummary[]; activeHouseId?: number; state?: AppState }>("auth/me"),
 
   login: (email: string, password: string) =>
-    request<{ ok: true; user: AuthUser; state: AppState }>("auth/login", {
+    request<AuthPayload>("auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     }),
 
   register: (name: string, email: string, password: string) =>
-    request<{ ok: true; user: AuthUser; state: AppState }>("auth/register", {
+    request<AuthPayload>("auth/register", {
       method: "POST",
       body: JSON.stringify({ name, email, password }),
     }),
@@ -70,6 +77,52 @@ export const api = {
   logout: () => request<{ ok: true }>("auth/logout", { method: "POST" }),
 
   sync: () => request<{ ok: true; state: AppState }>("sync"),
+
+  listHouses: () =>
+    request<{ ok: true; houses: HouseSummary[]; activeHouseId: number }>("houses"),
+
+  createHouse: (name: string) =>
+    request<AuthPayload>("houses", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    }),
+
+  switchHouse: (houseId: number) =>
+    request<AuthPayload>("houses/switch", {
+      method: "POST",
+      body: JSON.stringify({ houseId }),
+    }),
+
+  adminStats: () =>
+    request<{ ok: true; stats: AdminStats; recentUsers: AdminUser[] }>("admin/stats"),
+
+  adminUsers: () => request<{ ok: true; users: AdminUser[] }>("admin/users"),
+
+  adminCreateUser: (data: { name: string; email: string; password: string; role?: UserRole }) =>
+    request<{ ok: true; user: AdminUser }>("admin/users", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  adminResetPassword: (userId: number, password: string) =>
+    request<{ ok: true }>(`admin/users/${userId}/password`, {
+      method: "PUT",
+      body: JSON.stringify({ password }),
+    }),
+
+  adminSetRole: (userId: number, role: UserRole) =>
+    request<{ ok: true }>(`admin/users/${userId}/role`, {
+      method: "PUT",
+      body: JSON.stringify({ role }),
+    }),
+
+  adminDeleteUser: (userId: number) =>
+    request<{ ok: true }>(`admin/users/${userId}`, { method: "DELETE" }),
+
+  adminHouses: () => request<{ ok: true; houses: AdminHouse[] }>("admin/houses"),
+
+  adminDeleteHouse: (houseId: number) =>
+    request<{ ok: true }>(`admin/houses/${houseId}`, { method: "DELETE" }),
 
   addRoommate: (data: Record<string, unknown>) =>
     request<{ ok: true; roommate: unknown }>("roommates", {

@@ -6,7 +6,49 @@ export type Page =
   | "analytics"
   | "settings"
   | "bill-details"
-  | "shared-bill";
+  | "shared-bill"
+  | "admin";
+
+export type UserRole = "user" | "super_admin";
+export type HouseRole = "owner" | "admin" | "member";
+
+export interface HouseSummary {
+  id: number;
+  name: string;
+  role: HouseRole;
+  roommateCount?: number;
+  billCount?: number;
+}
+
+export interface AuthUser {
+  id: number;
+  name: string;
+  email: string;
+  role?: UserRole;
+}
+
+export interface AdminUser extends AuthUser {
+  createdAt?: string;
+  houseCount?: number;
+}
+
+export interface AdminHouse {
+  id: number;
+  name: string;
+  ownerId: number;
+  ownerName: string;
+  ownerEmail: string;
+  roommateCount: number;
+  billCount: number;
+  createdAt?: string;
+}
+
+export interface AdminStats {
+  users: number;
+  houses: number;
+  bills: number;
+  roommates: number;
+}
 
 export type RoommateStatus = "Active" | "Pending" | "Inactive";
 export type PayStatus = "Paid" | "Partial" | "Pending";

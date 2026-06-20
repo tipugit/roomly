@@ -2,11 +2,13 @@ import { useState } from "react";
 import {
   LayoutDashboard, Users, FileText, Receipt, BarChart3,
   Settings, Bell, Search, Sun, Moon, ChevronDown, LogOut,
-  Home, X, Plus, Star, Zap, Menu
+  Home, X, Plus, Star, Zap, Menu, Shield
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 import { SearchModal } from "@/components/SearchModal";
 import { SiteFooter } from "@/components/SiteFooter";
+import { HouseSwitcher } from "@/components/HouseSwitcher";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", id: "dashboard", badgeKey: null as string | null },
@@ -34,6 +36,7 @@ export function Layout({ children, activePage }: LayoutProps) {
     navigate, darkMode, toggleDark, roommates, billsCount,
     activeBill, settings, activities, setSearchOpen, showToast, logout,
   } = useApp();
+  const { isSuperAdmin } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -105,6 +108,10 @@ export function Layout({ children, activePage }: LayoutProps) {
           </button>
         </div>
 
+        <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--sidebar-border)" }}>
+          <HouseSwitcher />
+        </div>
+
         <div className="px-4 py-4">
           <button
             onClick={() => { navigate("bills"); setSidebarOpen(false); }}
@@ -159,6 +166,33 @@ export function Layout({ children, activePage }: LayoutProps) {
               </button>
             );
           })}
+
+          {isSuperAdmin && (
+            <>
+              <div style={{ height: 16 }} />
+              <div style={{ color: "var(--muted-foreground)", fontSize: "10px", fontWeight: 600, letterSpacing: "0.8px", padding: "4px 12px 8px" }}>PLATFORM</div>
+              <button
+                onClick={() => { navigate("admin"); setSidebarOpen(false); }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 active:scale-95"
+                style={{
+                  background: activePage === "admin" ? "linear-gradient(135deg, rgba(245,158,11,0.15), rgba(217,119,6,0.08))" : "transparent",
+                  border: activePage === "admin" ? "1px solid rgba(245,158,11,0.25)" : "1px solid transparent",
+                }}
+              >
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{
+                    background: activePage === "admin" ? "linear-gradient(135deg, #F59E0B, #D97706)" : "var(--muted)",
+                  }}
+                >
+                  <Shield size={15} style={{ color: activePage === "admin" ? "white" : "var(--muted-foreground)" }} />
+                </div>
+                <span style={{ color: activePage === "admin" ? "#D97706" : "var(--foreground)", fontSize: "13.5px", fontWeight: activePage === "admin" ? 600 : 400 }}>
+                  Super Admin
+                </span>
+              </button>
+            </>
+          )}
 
           <div style={{ height: 16 }} />
           <div style={{ color: "var(--muted-foreground)", fontSize: "10px", fontWeight: 600, letterSpacing: "0.8px", padding: "4px 12px 8px" }}>QUICK LINKS</div>
@@ -251,6 +285,7 @@ export function Layout({ children, activePage }: LayoutProps) {
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2 ml-auto">
+            <HouseSwitcher compact />
             <button
               onClick={toggleDark}
               className="w-9 h-9 rounded-xl flex items-center justify-center transition-all active:scale-95"
