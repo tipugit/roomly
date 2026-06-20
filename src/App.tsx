@@ -26,7 +26,7 @@ function LoadingScreen() {
 
 function AppContent() {
   const { user } = useAuth();
-  const { page, setPage, sharedPayload, viewBillId, openBillView, billViewRevision, dataRevision } = useApp();
+  const { page, setPage, sharedPayload, viewBillId, openBillView, billViewRevision } = useApp();
 
   if (page === "shared-bill") {
     return (
@@ -82,7 +82,7 @@ function AppContent() {
   return (
     <>
       <Layout activePage={sidebarActive}>
-        <div key={`${page}-${dataRevision}`}>{renderPage()}</div>
+        <div key={page}>{renderPage()}</div>
       </Layout>
       <ToastStack />
       <SearchModal />

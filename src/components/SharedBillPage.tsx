@@ -188,119 +188,106 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
       style={{ background: "linear-gradient(160deg, #F0F4FF 0%, #F8FAFC 60%, #FDF4FF 100%)", fontFamily: "'Inter', sans-serif" }}
     >
       <div
-        className="no-print sticky top-0 z-10 flex items-center justify-between px-4 sm:px-6 py-3.5"
+        className="no-print sticky top-0 z-10"
         style={{
-          background: "rgba(255,255,255,0.85)",
-          backdropFilter: "blur(20px)",
-          borderBottom: "1px solid rgba(79,70,229,0.1)",
-          boxShadow: "0 1px 20px rgba(79,70,229,0.06)",
+          background: "rgba(255,255,255,0.92)",
+          backdropFilter: "blur(16px)",
+          borderBottom: "1px solid rgba(79,70,229,0.12)",
+          boxShadow: "0 1px 12px rgba(79,70,229,0.06)",
         }}
       >
-        <div className="flex items-center gap-3">
-          {onBack && (
-            <button
-              onClick={onBack}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm transition-all font-medium active:scale-95"
-              style={{ background: "#F1F5F9", color: "#64748B", fontSize: "13px" }}
-            >
-              <ChevronLeft size={14} />
-              Back
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => {
-              if (onBack) onBack();
-              else window.location.hash = "#/";
-            }}
-            className="flex items-center gap-2.5 transition-opacity hover:opacity-80"
-          >
+        <div className="max-w-3xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 active:scale-95"
+                style={{ background: "#F1F5F9", color: "#64748B" }}
+              >
+                <ChevronLeft size={15} />
+              </button>
+            )}
             <div
-              className="w-8 h-8 rounded-xl flex items-center justify-center"
-              style={{ background: "linear-gradient(135deg, #4F46E5, #7C3AED)", boxShadow: "0 2px 8px rgba(79,70,229,0.3)" }}
+              className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+              style={{ background: "linear-gradient(135deg, #4F46E5, #7C3AED)" }}
             >
               <Home size={14} className="text-white" />
             </div>
-            <div>
-              <span style={{ fontWeight: 800, color: "#0F0D2A", fontSize: "15px" }}>rent.otipu.com</span>
-              <span style={{ color: "#94A3B8", fontSize: "12px", marginLeft: 6 }}>Shared Bill</span>
+            <div className="min-w-0">
+              <div className="truncate" style={{ fontWeight: 800, color: "#0F0D2A", fontSize: "14px" }}>
+                rent.otipu.com
+              </div>
+              <div style={{ color: "#64748B", fontSize: "10px" }}>Shared Bill</div>
             </div>
-          </button>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl" style={{ background: "#ECFDF5" }}>
-            <Shield size={12} style={{ color: "#10B981" }} />
-            <span style={{ color: "#059669", fontSize: "11px", fontWeight: 600 }}>Verified Bill</span>
           </div>
-          <button
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-semibold transition-all active:scale-95"
-            style={{ background: "white", border: "1px solid rgba(79,70,229,0.15)", color: "#4F46E5", fontSize: "12px" }}
-            onClick={() => window.print()}
-          >
-            <Printer size={13} />
-            Print
-          </button>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-lg" style={{ background: "#ECFDF5", color: "#059669", fontSize: "10px", fontWeight: 600 }}>
+              <Shield size={11} />
+              Verified
+            </span>
+            <button
+              type="button"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg font-semibold active:scale-95"
+              style={{ background: "white", border: "1px solid rgba(79,70,229,0.15)", color: "#4F46E5", fontSize: "11px" }}
+              onClick={() => window.print()}
+            >
+              <Printer size={12} />
+              Print
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-4 py-5 space-y-4">
-        {/* Hero */}
+      <div className="max-w-3xl mx-auto px-4 py-4 space-y-4">
+        {/* Bill header card */}
         <div
-          className="rounded-2xl p-6 text-center relative overflow-hidden"
+          className="rounded-2xl overflow-hidden"
           style={{
-            background: "linear-gradient(135deg, #312E81 0%, #4F46E5 40%, #7C3AED 70%, #0D9488 100%)",
-            boxShadow: "0 32px 80px rgba(79,70,229,0.35)",
+            background: "linear-gradient(135deg, #312E81 0%, #4F46E5 55%, #6366F1 100%)",
+            boxShadow: "0 16px 48px rgba(79,70,229,0.25)",
           }}
         >
-          <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full opacity-25" style={{ background: "#06B6D4", filter: "blur(50px)" }} />
-          <div className="absolute bottom-0 -left-8 w-40 h-40 rounded-full opacity-20" style={{ background: "#EC4899", filter: "blur(40px)" }} />
-          <div className="relative">
-            <div
-              className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-4"
-              style={{
-                background: "rgba(255,255,255,0.15)",
-                backdropFilter: "blur(12px)",
-                border: "1.5px solid rgba(255,255,255,0.3)",
-              }}
-            >
-              <Home size={32} className="text-white" />
-            </div>
-            <h1 className="text-white mb-1" style={{ fontSize: "30px", fontWeight: 900, letterSpacing: "-0.5px" }}>
-              {bill.title || displayHouseName}
-            </h1>
-            <p style={{ color: "rgba(255,255,255,0.65)", fontSize: "13px", marginBottom: 4 }}>{displayHouseName}</p>
-            <p style={{ color: "rgba(255,255,255,0.45)", fontSize: "12px", marginBottom: 16 }}>{address}</p>
-            <div className="flex items-center justify-center gap-3 flex-wrap">
-              <span
-                className="px-4 py-1.5 rounded-full font-semibold"
-                style={{ background: "rgba(255,255,255,0.18)", color: "white", backdropFilter: "blur(8px)", fontSize: "13px" }}
+          <div className="p-5 pb-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-white truncate" style={{ fontSize: "22px", fontWeight: 800, letterSpacing: "-0.4px" }}>
+                  {bill.title || displayHouseName}
+                </h1>
+                <p className="truncate" style={{ color: "rgba(255,255,255,0.75)", fontSize: "12px", marginTop: 4 }}>
+                  {displayHouseName} · {address}
+                </p>
+                <div className="flex flex-wrap items-center gap-2 mt-3">
+                  <span className="px-2.5 py-1 rounded-full text-xs font-semibold" style={{ background: "rgba(255,255,255,0.18)", color: "white" }}>
+                    {bill.month}
+                  </span>
+                  <span className="text-xs" style={{ color: "rgba(255,255,255,0.65)" }}>
+                    {roommateCount} roommates
+                  </span>
+                  <span className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>
+                    · {bill.createdAt}
+                  </span>
+                </div>
+              </div>
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.25)" }}
               >
-                {bill.month}
-              </span>
-              <span style={{ color: "rgba(255,255,255,0.5)", fontSize: "12px" }}>·</span>
-              <span style={{ color: "rgba(255,255,255,0.65)", fontSize: "12px" }}>{roommateCount} roommates</span>
-              <span style={{ color: "rgba(255,255,255,0.5)", fontSize: "12px" }}>·</span>
-              <span style={{ color: "rgba(255,255,255,0.65)", fontSize: "12px" }}>Generated {bill.createdAt}</span>
+                <FileText size={22} className="text-white" />
+              </div>
             </div>
           </div>
-        </div>
-
-        {/* Summary */}
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { label: "Total Bill", value: `$${totalToCollect.toLocaleString()}`, color: "#4F46E5", bg: "#EEF2FF", border: "rgba(79,70,229,0.2)" },
-            { label: "Collected", value: `$${totalCollected.toLocaleString()}`, color: "#059669", bg: "#ECFDF5", border: "rgba(16,185,129,0.2)" },
-            { label: "Outstanding", value: `$${(collectionSummary?.outstanding ?? 0).toLocaleString()}`, color: "#EF4444", bg: "#FEF2F2", border: "rgba(239,68,68,0.2)" },
-          ].map((s) => (
-            <div
-              key={s.label}
-              className="rounded-2xl p-4 text-center"
-              style={{ background: s.bg, border: `1.5px solid ${s.border}` }}
-            >
-              <div style={{ color: s.color, fontWeight: 900, fontSize: "22px", letterSpacing: "-0.5px" }}>{s.value}</div>
-              <div style={{ color: s.color + "99", fontSize: "11px", fontWeight: 600, marginTop: 2 }}>{s.label}</div>
-            </div>
-          ))}
+          <div className="grid grid-cols-3 gap-px" style={{ background: "rgba(255,255,255,0.15)" }}>
+            {[
+              { label: "Total Bill", value: `$${totalToCollect.toLocaleString()}` },
+              { label: "Collected", value: `$${totalCollected.toLocaleString()}` },
+              { label: "Outstanding", value: `$${(collectionSummary?.outstanding ?? 0).toLocaleString()}` },
+            ].map((s) => (
+              <div key={s.label} className="px-3 py-3 text-center" style={{ background: "rgba(15,13,42,0.35)" }}>
+                <div className="text-white font-bold" style={{ fontSize: "16px", letterSpacing: "-0.3px" }}>{s.value}</div>
+                <div style={{ color: "rgba(255,255,255,0.6)", fontSize: "10px", fontWeight: 600, marginTop: 2 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Progress */}

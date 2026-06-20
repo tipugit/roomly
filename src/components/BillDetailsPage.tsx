@@ -26,7 +26,7 @@ export function BillDetailsPage({ onBack }: BillDetailsPageProps) {
     markBillComplete,
     navigate,
     showToast,
-    setEditingBill,
+    startEditingBill,
     openBillView,
   } = useApp();
 
@@ -50,7 +50,7 @@ export function BillDetailsPage({ onBack }: BillDetailsPageProps) {
   };
 
   const handleEdit = (bill: (typeof bills)[0]) => {
-    setEditingBill(bill);
+    startEditingBill(bill);
     navigate("bills");
     showToast("Editing bill — save to update", "info");
   };
@@ -131,7 +131,7 @@ export function BillDetailsPage({ onBack }: BillDetailsPageProps) {
                 type="button"
                 onClick={() => openBillView(bill.id)}
                 className="w-full p-5 text-left"
-                style={{ background: "linear-gradient(135deg, #FAFBFF, #F5F3FF)" }}
+                style={{ background: "var(--muted)" }}
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="min-w-0">
@@ -145,15 +145,15 @@ export function BillDetailsPage({ onBack }: BillDetailsPageProps) {
                   <span
                     className="px-2 py-0.5 rounded-full text-xs font-semibold flex-shrink-0"
                     style={{
-                      background: complete ? "#ECFDF5" : "#EEF2FF",
-                      color: complete ? "#059669" : "#4F46E5",
+                      background: complete ? "var(--status-success-bg)" : "var(--status-info-bg)",
+                      color: complete ? "var(--status-success-text)" : "var(--status-info-text)",
                     }}
                   >
                     {complete ? "Done" : "Open"}
                   </span>
                 </div>
 
-                <div className="p-3 rounded-xl mb-2" style={{ background: "white" }}>
+                <div className="p-3 rounded-xl mb-2" style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
                   <p style={{ fontSize: "10px", color: "var(--muted-foreground)", fontWeight: 600 }}>TOTAL</p>
                   <p style={{ fontWeight: 900, fontSize: "24px", color: "#4F46E5", letterSpacing: "-0.5px" }}>
                     ${summary.totalToCollect.toLocaleString()}

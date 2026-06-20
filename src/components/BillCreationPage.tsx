@@ -123,10 +123,19 @@ function ParkingToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) 
 }
 
 export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) => void }) {
-  const { roommates, settings, createBill, updateBill, showToast, editingBill, setEditingBill } = useApp();
+  const {
+    roommates,
+    settings,
+    createBill,
+    updateBill,
+    showToast,
+    editingBill,
+    editingBillId,
+    setEditingBill,
+    clearEditingBillSession,
+  } = useApp();
 
   const defaultMonth = formatMonthYear();
-  const [editBillId, setEditBillId] = useState<string | null>(null);
   const [month, setMonth] = useState(defaultMonth);
   const [extraBillMonth, setExtraBillMonth] = useState(defaultMonth);
   const isExtraBill = month === "Extra Bill";
@@ -205,7 +214,6 @@ export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) 
 
   useEffect(() => {
     if (!editingBill) return;
-    setEditBillId(editingBill.id);
     const isExtra = editingBill.isExtraBill ?? editingBill.month.startsWith("Extra Bill");
     if (isExtra) {
       setMonth("Extra Bill");
@@ -331,12 +339,13 @@ export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) 
       isExtraBill,
     };
 
-    if (editBillId) {
-      const ok = await updateBill(editBillId, payload);
+    if (editingBillId) {
+      const id = editingBillId;
+      const ok = await updateBill(id, payload);
       if (ok) {
         setSaved(true);
-        setEditBillId(null);
-        onCreated?.(editBillId);
+        clearEditingBillSession();
+        onCreated?.(id);
       }
       return;
     }
@@ -360,18 +369,18 @@ export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) 
               letterSpacing: "-0.5px",
             }}
           >
-            {editBillId ? "Edit Bill" : "Create Monthly Bill"}
+            {editingBillId ? "Edit Bill" : "Create Monthly Bill"}
           </h1>
           <p style={{ color: "var(--muted-foreground)", fontSize: "12px", marginTop: 2 }}>
-            {editBillId ? "Update this bill and save changes" : "Build, split and share house expenses"}
+            {editingBillId ? "Update this bill and save changes" : "Build, split and share house expenses"}
           </p>
         </div>
         <div
           className="flex items-center gap-1.5 px-3 py-2 rounded-xl flex-shrink-0"
-          style={{ background: "#EEF2FF", border: "1px solid rgba(79,70,229,0.2)" }}
+          style={{ background: "var(--status-info-bg)", border: "1px solid var(--action-primary-border)" }}
         >
-          <Sparkles size={13} style={{ color: "#4F46E5" }} />
-          <span style={{ color: "#4F46E5", fontSize: "11px", fontWeight: 600 }}>
+          <Sparkles size={13} style={{ color: "var(--status-info-text)" }} />
+          <span style={{ color: "var(--status-info-text)", fontSize: "11px", fontWeight: 600 }}>
             Auto-split
           </span>
         </div>
@@ -1014,12 +1023,12 @@ export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) 
                 {saved ? (
                   <>
                     <CheckCircle2 size={16} />
-                    {editBillId ? "Bill Updated!" : "Bill Created!"}
+                    {editingBillId ? "Bill Updated!" : "Bill Created!"}
                   </>
                 ) : (
                   <>
                     <Calculator size={16} />
-                    {editBillId ? "Save Changes" : "Create Bill"}
+                    {editingBillId ? "Save Changes" : "Create Bill"}
                   </>
                 )}
               </button>

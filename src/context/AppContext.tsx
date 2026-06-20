@@ -97,7 +97,10 @@ interface AppContextValue {
     }
   ) => Promise<boolean>;
   editingBill: Bill | null;
+  editingBillId: string | null;
   setEditingBill: (bill: Bill | null) => void;
+  startEditingBill: (bill: Bill) => void;
+  clearEditingBillSession: () => void;
   viewBillId: string | null;
   openBillView: (billId: string, refresh?: boolean) => void;
   deleteBill: (id: string) => Promise<void>;
@@ -112,7 +115,6 @@ interface AppContextValue {
   pendingBillsCount: number;
   billsCount: number;
   billViewRevision: number;
-  dataRevision: number;
   refreshAppState: () => Promise<void>;
   searchOpen: boolean;
   setSearchOpen: (open: boolean) => void;
@@ -155,8 +157,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<Bill | null>(null);
+  const [editingBillId, setEditingBillId] = useState<string | null>(null);
   const [billViewRevision, setBillViewRevision] = useState(0);
-  const [dataRevision, setDataRevision] = useState(0);
+
+  const startEditingBill = useCallback((bill: Bill) => {
+    setEditingBill(bill);
+    setEditingBillId(bill.id);
+  }, []);
+
+  const clearEditingBillSession = useCallback(() => {
+    setEditingBill(null);
+    setEditingBillId(null);
+  }, []);
 
   const applyState = useCallback(
     (next: typeof state) => {
@@ -168,7 +180,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const normalized = { ...next, bills };
       stateRef.current = normalized;
       setAppState(normalized);
-      setDataRevision((r) => r + 1);
     },
     [setAppState]
   );
@@ -285,9 +296,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const navigate = useCallback(
     (p: string) => {
       setPage(p as Page);
-      void refreshAppState();
     },
-    [setPage, refreshAppState]
+    [setPage]
   );
 
   const toggleDark = useCallback(async () => {
@@ -414,14 +424,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
         applyState(res.state);
         showToast("Bill updated successfully!", "success");
-        await refreshAppState();
         return true;
       } catch (e) {
         showToast(e instanceof ApiError ? e.message : "Failed to update bill", "error");
         return false;
       }
     },
-    [state.bills, state.roommates, state.settings, applyState, showToast, refreshAppState]
+    [state.bills, state.roommates, state.settings, applyState, showToast]
   );
 
   const deleteBill = useCallback(
@@ -584,7 +593,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     createBill,
     updateBill,
     editingBill,
+    editingBillId,
     setEditingBill,
+    startEditingBill,
+    clearEditingBillSession,
     viewBillId,
     openBillView,
     deleteBill,
@@ -599,7 +611,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     pendingBillsCount,
     billsCount,
     billViewRevision,
-    dataRevision,
     refreshAppState,
     searchOpen,
     setSearchOpen,

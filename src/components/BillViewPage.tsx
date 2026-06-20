@@ -56,7 +56,7 @@ export function BillViewPage({ billId }: BillViewPageProps) {
     updatePayment,
     showToast,
     navigate,
-    setEditingBill,
+    startEditingBill,
     duplicateBill,
     markBillComplete,
     deleteBill,
@@ -158,7 +158,7 @@ export function BillViewPage({ billId }: BillViewPageProps) {
   const houseLabel = bill.houseName || settings.houseName;
 
   const handleEdit = () => {
-    setEditingBill(bill);
+    startEditingBill(bill);
     navigate("bills");
     showToast("Editing bill — save to update", "info");
   };
@@ -199,7 +199,7 @@ export function BillViewPage({ billId }: BillViewPageProps) {
             <ArrowLeft size={14} />
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="truncate" style={{ fontWeight: 700, fontSize: "17px", letterSpacing: "-0.3px" }}>
+            <h1 className="truncate" style={{ fontWeight: 700, fontSize: "17px", letterSpacing: "-0.3px", color: "var(--foreground)" }}>
               {displayTitle}
             </h1>
             <p className="truncate" style={{ color: "var(--muted-foreground)", fontSize: "11px", marginTop: 1 }}>
@@ -208,15 +208,15 @@ export function BillViewPage({ billId }: BillViewPageProps) {
           </div>
           <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
             {[
-              { label: linkCopied ? "Copied!" : "Link", icon: Link2, onClick: handleCopyLink, style: actionButtonStyle.success, title: "Copy share link" },
-              { label: "Public", icon: ExternalLink, onClick: handleOpenPublic, style: actionButtonStyle.primary, title: "Open public page" },
-              { label: "Edit", icon: Edit2, onClick: handleEdit, style: actionButtonStyle.warning, title: "Edit bill" },
-              { label: "Copy", icon: Copy, onClick: () => void duplicateBill(bill.id), style: actionButtonStyle.muted, title: "Duplicate bill" },
-              { label: "Paid", icon: Check, onClick: () => void markBillComplete(bill.id), style: actionButtonStyle.success, title: "Mark all paid" },
-              { label: "Delete", icon: Trash2, onClick: () => setDeleteOpen(true), style: actionButtonStyle.danger, title: "Delete bill" },
+              { id: "link", label: linkCopied ? "Copied!" : "Link", icon: Link2, onClick: () => void handleCopyLink(), style: actionButtonStyle.success, title: "Copy share link" },
+              { id: "public", label: "Public", icon: ExternalLink, onClick: () => void handleOpenPublic(), style: actionButtonStyle.primary, title: "Open public page" },
+              { id: "edit", label: "Edit", icon: Edit2, onClick: handleEdit, style: actionButtonStyle.warning, title: "Edit bill" },
+              { id: "duplicate", label: "Duplicate", icon: Copy, onClick: () => void duplicateBill(bill.id), style: actionButtonStyle.muted, title: "Duplicate bill" },
+              { id: "paid", label: "Mark Paid", icon: Check, onClick: () => void markBillComplete(bill.id), style: actionButtonStyle.success, title: "Mark all paid" },
+              { id: "delete", label: "Delete", icon: Trash2, onClick: () => setDeleteOpen(true), style: actionButtonStyle.danger, title: "Delete bill" },
             ].map((action) => (
               <button
-                key={action.label}
+                key={action.id}
                 type="button"
                 title={action.title}
                 onClick={action.onClick}
@@ -250,16 +250,17 @@ export function BillViewPage({ billId }: BillViewPageProps) {
 
         <div className="sm:hidden flex flex-wrap gap-1 p-2 border-t" style={{ borderColor: "var(--border)" }}>
           {[
-            { icon: Link2, onClick: handleCopyLink, style: actionButtonStyle.success },
-            { icon: ExternalLink, onClick: handleOpenPublic, style: actionButtonStyle.primary },
-            { icon: Edit2, onClick: handleEdit, style: actionButtonStyle.warning },
-            { icon: Copy, onClick: () => void duplicateBill(bill.id), style: actionButtonStyle.muted },
-            { icon: Check, onClick: () => void markBillComplete(bill.id), style: actionButtonStyle.success },
-            { icon: Trash2, onClick: () => setDeleteOpen(true), style: actionButtonStyle.danger },
-          ].map((action, i) => (
+            { id: "link", icon: Link2, onClick: () => void handleCopyLink(), style: actionButtonStyle.success, title: "Copy link" },
+            { id: "public", icon: ExternalLink, onClick: () => void handleOpenPublic(), style: actionButtonStyle.primary, title: "Public page" },
+            { id: "edit", icon: Edit2, onClick: handleEdit, style: actionButtonStyle.warning, title: "Edit" },
+            { id: "duplicate", icon: Copy, onClick: () => void duplicateBill(bill.id), style: actionButtonStyle.muted, title: "Duplicate" },
+            { id: "paid", icon: Check, onClick: () => void markBillComplete(bill.id), style: actionButtonStyle.success, title: "Mark paid" },
+            { id: "delete", icon: Trash2, onClick: () => setDeleteOpen(true), style: actionButtonStyle.danger, title: "Delete" },
+          ].map((action) => (
             <button
-              key={i}
+              key={action.id}
               type="button"
+              title={action.title}
               onClick={action.onClick}
               className="w-8 h-8 rounded-lg flex items-center justify-center"
               style={{ background: action.style.bg, color: action.style.text, border: `1px solid ${action.style.border}` }}

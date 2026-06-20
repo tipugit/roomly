@@ -7,12 +7,12 @@ const lineStyles: Record<
   CalculationLine["type"],
   { sign: string; color: string; bg: string; weight: number }
 > = {
-  add: { sign: "+", color: "#4F46E5", bg: "#EEF2FF", weight: 500 },
-  subtract: { sign: "−", color: "#059669", bg: "#ECFDF5", weight: 500 },
-  info: { sign: "", color: "#64748B", bg: "#F8FAFC", weight: 400 },
-  subtotal: { sign: "=", color: "#0F172A", bg: "#F1F5F9", weight: 700 },
-  total: { sign: "=", color: "#4F46E5", bg: "#EEF2FF", weight: 800 },
-  balance: { sign: "=", color: "#EF4444", bg: "#FEF2F2", weight: 800 },
+  add: { sign: "+", color: "var(--status-info-text)", bg: "var(--status-info-bg)", weight: 500 },
+  subtract: { sign: "−", color: "var(--status-success-text)", bg: "var(--status-success-bg)", weight: 500 },
+  info: { sign: "", color: "var(--muted-foreground)", bg: "var(--muted)", weight: 400 },
+  subtotal: { sign: "=", color: "var(--foreground)", bg: "var(--muted)", weight: 700 },
+  total: { sign: "=", color: "var(--primary)", bg: "var(--status-info-bg)", weight: 800 },
+  balance: { sign: "=", color: "var(--status-danger-text)", bg: "var(--status-danger-bg)", weight: 800 },
 };
 
 interface MemberCalculationPanelProps {
