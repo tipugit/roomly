@@ -9,6 +9,7 @@ import { DashboardPage } from "@/components/DashboardPage";
 import { RoommatesPage } from "@/components/RoommatesPage";
 import { BillCreationPage } from "@/components/BillCreationPage";
 import { BillDetailsPage } from "@/components/BillDetailsPage";
+import { BillViewPage } from "@/components/BillViewPage";
 import { SharedBillPage } from "@/components/SharedBillPage";
 import { AnalyticsPage } from "@/components/AnalyticsPage";
 import { SettingsPage } from "@/components/SettingsPage";
@@ -25,7 +26,7 @@ function LoadingScreen() {
 
 function AppContent() {
   const { user } = useAuth();
-  const { page, setPage, sharedPayload } = useApp();
+  const { page, setPage, sharedPayload, viewBillId, openBillView } = useApp();
 
   if (page === "shared-bill") {
     return (
@@ -53,14 +54,19 @@ function AppContent() {
     switch (page) {
       case "dashboard": return <DashboardPage />;
       case "roommates": return <RoommatesPage />;
-      case "bills": return <BillCreationPage onCreated={() => setPage("expenses")} />;
-      case "expenses":
-      case "bill-details":
+      case "bills":
         return (
-          <BillDetailsPage
-            onBack={() => setPage("bills")}
+          <BillCreationPage
+            onCreated={(billId) => {
+              if (billId) openBillView(billId);
+              else setPage("expenses");
+            }}
           />
         );
+      case "bill-details":
+        return viewBillId ? <BillViewPage billId={viewBillId} /> : <BillDetailsPage />;
+      case "expenses":
+        return <BillDetailsPage />;
       case "analytics": return <AnalyticsPage />;
       case "settings": return <SettingsPage />;
       default: return <DashboardPage />;

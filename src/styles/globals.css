@@ -6,6 +6,15 @@
 * { scrollbar-width: none; }
 *::-webkit-scrollbar { display: none; }
 
+/* Prevent iOS Safari from zooming inputs on focus (requires ≥16px) */
+@media (max-width: 1023px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 @media print {
   .no-print { display: none !important; }
   body { background: white !important; }

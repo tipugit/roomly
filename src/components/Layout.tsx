@@ -20,7 +20,6 @@ const navItems = [
 const mobileNavItems = [
   { icon: LayoutDashboard, label: "Dashboard", id: "dashboard" },
   { icon: Users, label: "Roommates", id: "roommates" },
-  { icon: FileText, label: "Bills", id: "bills" },
   { icon: Receipt, label: "All Bills", id: "expenses" },
   { icon: BarChart3, label: "Analytics", id: "analytics" },
 ];

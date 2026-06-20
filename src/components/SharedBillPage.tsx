@@ -28,9 +28,11 @@ import {
   getBillExpensesWithRent,
   getCategoryColor,
   getCategoryIcon,
+  getMemberAmountDue,
   getRentPoolForSharing,
   getParkingShareMemberIds,
   getRoommateById,
+  normalizeBillShares,
 } from "@/lib/utils";
 
 const statusConfig: Record<string, { bg: string; text: string; icon: ReactNode; label: string }> = {
@@ -73,7 +75,9 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
 
   const roommateRows = useMemo(() => {
     if (!bill) return [];
-    return bill.roommateShares.map((rs) => {
+    const roundUp = settings.roundUpAmounts ?? false;
+    const shares = normalizeBillShares(bill, roundUp);
+    return shares.map((rs) => {
       const roommate = sharedPayload
         ? billRoommates.find((r) => r.id === rs.roommateId)
         : getRoommateById(roommates, rs.roommateId);
@@ -82,8 +86,10 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
         bill.selectedRoommateIds,
         bill.rent,
         bill.expenses,
-        bill.parkingSnapshot
+        bill.parkingSnapshot,
+        roundUp
       );
+      const amountDue = getMemberAmountDue(rs);
       return {
         roommateId: rs.roommateId,
         name: roommate?.name ?? "Unknown",
@@ -92,11 +98,12 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
         color: roommate?.color ?? "#64748B",
         share: rs.share,
         paid: rs.paid,
+        amountDue,
         status: rs.status,
         calc,
       };
     });
-  }, [bill, billRoommates, roommates, sharedPayload]);
+  }, [bill, billRoommates, roommates, sharedPayload, settings.roundUpAmounts]);
 
   const collectionSummary = bill ? calcCollectionSummary(bill) : null;
   const totalToCollect = collectionSummary?.totalToCollect ?? 0;
@@ -563,7 +570,7 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
           <div className="px-6 py-4" style={{ borderBottom: "1px solid rgba(79,70,229,0.06)", background: "#F8FAFC" }}>
             <h2 style={{ color: "#0F0D2A", fontWeight: 700, fontSize: "16px" }}>Individual Splits</h2>
             <p style={{ color: "#64748B", fontSize: "12px", marginTop: 2 }}>
-              Rent + expenses + parking = total due per roommate
+              Rent + expenses + parking, minus any upfront payments
             </p>
           </div>
           <div className="p-4 space-y-3">
@@ -587,7 +594,14 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
                       <div style={{ color: "#94A3B8", fontSize: "12px" }}>Room {r.room}</div>
                     </div>
                     <div className="text-right">
-                      <div style={{ color: "#0F0D2A", fontWeight: 800, fontSize: "18px" }}>${r.share}</div>
+                      <div style={{ color: "#0F0D2A", fontWeight: 800, fontSize: "18px" }}>
+                        {formatCurrencyDetailed(r.amountDue)}
+                      </div>
+                      {r.calc.upfrontPaid > 0 && (
+                        <div style={{ color: "#10B981", fontSize: "10px", fontWeight: 600 }}>
+                          −{formatCurrencyDetailed(r.calc.upfrontPaid)} prepaid
+                        </div>
+                      )}
                       <div className="flex items-center gap-1 justify-end mt-0.5">
                         {sc.icon}
                         <span style={{ color: sc.text, fontSize: "11px", fontWeight: 600 }}>{sc.label}</span>
@@ -613,9 +627,17 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
                         </span>
                       </>
                     )}
+                    {r.calc.upfrontPaid > 0 && (
+                      <>
+                        <span style={{ fontSize: "11px", color: "#94A3B8" }}>−</span>
+                        <span style={{ fontSize: "11px", color: "#64748B" }}>
+                          Prepaid <strong style={{ color: "#10B981" }}>{formatCurrencyDetailed(r.calc.upfrontPaid)}</strong>
+                        </span>
+                      </>
+                    )}
                     <span style={{ fontSize: "11px", color: "#94A3B8" }}>=</span>
                     <span style={{ fontSize: "11px", color: "#0F0D2A", fontWeight: 700 }}>
-                      {formatCurrencyDetailed(r.calc.total)}
+                      {formatCurrencyDetailed(r.share)}
                     </span>
                   </div>
                 </div>

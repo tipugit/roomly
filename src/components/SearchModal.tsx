@@ -22,7 +22,7 @@ const pages: { id: Page; label: string; icon: typeof LayoutDashboard; keywords: 
 ];
 
 export function SearchModal() {
-  const { searchOpen, setSearchOpen, navigate, roommates, bills, setActiveBillId } = useApp();
+  const { searchOpen, setSearchOpen, navigate, roommates, bills, openBillView } = useApp();
   const [query, setQuery] = useState("");
 
   useEffect(() => {
@@ -67,9 +67,8 @@ export function SearchModal() {
   };
 
   const openBill = (billId: string) => {
-    setActiveBillId(billId);
     setSearchOpen(false);
-    navigate("expenses");
+    openBillView(billId);
   };
 
   return (

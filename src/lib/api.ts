@@ -92,6 +92,12 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  updateBill: (billId: string, payload: Record<string, unknown>) =>
+    request<{ ok: true; state: AppState }>(`bills/${billId}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+
   deleteBill: (billId: string) =>
     request<{ ok: true; state: AppState }>(`bills/${billId}`, { method: "DELETE" }),
 

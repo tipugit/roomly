@@ -389,6 +389,97 @@ if (preg_match('#^bills/([^/]+)/complete$#', $route, $m) && $method === 'PUT') {
     respond(['ok' => true, 'state' => fetch_full_state($db, $auth['house_id'])]);
 }
 
+if (preg_match('#^bills/([^/]+)$#', $route, $m) && $method === 'PUT') {
+    $auth = require_auth();
+    $billId = $m[1];
+    $body = json_input();
+
+    $check = $db->prepare('SELECT id FROM bills WHERE id = ? AND house_id = ?');
+    $check->execute([$billId, $auth['house_id']]);
+    if (!$check->fetch()) respond_error('Bill not found.', 404);
+
+    $month = $body['month'] ?? '';
+    $title = trim($body['title'] ?? '');
+    $houseName = $body['houseName'] ?? '';
+    $rent = (float) ($body['rent'] ?? 0);
+    $expenses = $body['expenses'] ?? [];
+    $selected = $body['selectedRoommateIds'] ?? [];
+    $shares = $body['roommateShares'] ?? [];
+    $announcementTitle = trim($body['announcementTitle'] ?? '');
+    $announcementMessage = trim($body['announcementMessage'] ?? '');
+    $parkingSnapshot = $body['parkingSnapshot'] ?? null;
+
+    if (!is_array($expenses) || !is_array($selected) || !is_array($shares)) {
+        respond_error('Invalid bill payload.');
+    }
+
+    $parkingJson = is_array($parkingSnapshot) ? json_encode($parkingSnapshot) : null;
+
+    $db->beginTransaction();
+    try {
+        $db->prepare(
+            'UPDATE bills SET month_label = ?, title = ?, house_name = ?, rent = ?, selected_roommate_ids = ?, announcement_title = ?, announcement_message = ?, parking_snapshot = ? WHERE id = ? AND house_id = ?'
+        )->execute([
+            $month,
+            $title !== '' ? $title : null,
+            $houseName,
+            $rent,
+            json_encode($selected),
+            $announcementTitle !== '' ? $announcementTitle : null,
+            $announcementMessage !== '' ? $announcementMessage : null,
+            $parkingJson,
+            $billId,
+            $auth['house_id'],
+        ]);
+
+        $db->prepare('DELETE FROM bill_expenses WHERE bill_id = ?')->execute([$billId]);
+        $db->prepare('DELETE FROM bill_shares WHERE bill_id = ?')->execute([$billId]);
+
+        foreach ($expenses as $e) {
+            $shareMode = ($e['shareMode'] ?? 'all') === 'selected' ? 'selected' : 'all';
+            $sharedBy = $e['sharedBy'] ?? [];
+            if (!is_array($sharedBy)) {
+                $sharedBy = [];
+            }
+            $expStmt = $db->prepare(
+                'INSERT INTO bill_expenses (bill_id, name, amount, category, paid_by, note, icon, share_mode, shared_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            );
+            $expStmt->execute([
+                $billId,
+                $e['name'] ?? $e['category'] ?? 'Expense',
+                (float) ($e['amount'] ?? 0),
+                $e['category'] ?? 'Other',
+                isset($e['paidBy']) ? (int) $e['paidBy'] : null,
+                $e['note'] ?? null,
+                $e['icon'] ?? null,
+                $shareMode,
+                !empty($sharedBy) ? json_encode(array_map('intval', $sharedBy)) : null,
+            ]);
+        }
+
+        foreach ($shares as $s) {
+            $shareStmt = $db->prepare(
+                'INSERT INTO bill_shares (bill_id, roommate_id, share_amount, paid_amount, status) VALUES (?, ?, ?, ?, ?)'
+            );
+            $shareStmt->execute([
+                $billId,
+                (int) $s['roommateId'],
+                (float) $s['share'],
+                (float) $s['paid'],
+                $s['status'] ?? 'Pending',
+            ]);
+        }
+
+        insert_activity($db, $auth['house_id'], 'RefreshCw', 'Bill updated', ($title !== '' ? $title : $month) . ' saved', '#4F46E5', '#EEF2FF');
+        $db->commit();
+    } catch (Throwable $e) {
+        $db->rollBack();
+        respond_error('Failed to update bill.', 500);
+    }
+
+    respond(['ok' => true, 'state' => fetch_full_state($db, $auth['house_id'])]);
+}
+
 if (preg_match('#^bills/([^/]+)$#', $route, $m) && $method === 'DELETE') {
     $auth = require_auth();
     $billId = $m[1];

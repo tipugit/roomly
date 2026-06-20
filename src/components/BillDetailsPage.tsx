@@ -11,9 +11,8 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
-import { BillDetailModal, copyBillLink } from "@/components/BillDetailModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { calcCollectionSummary, getShareLink } from "@/lib/utils";
+import { calcCollectionSummary, copyBillLink, getShareLink } from "@/lib/utils";
 
 interface BillDetailsPageProps {
   onBack?: () => void;
@@ -22,28 +21,20 @@ interface BillDetailsPageProps {
 export function BillDetailsPage({ onBack }: BillDetailsPageProps) {
   const {
     bills,
-    setActiveBillId,
     deleteBill,
     duplicateBill,
     markBillComplete,
     navigate,
     showToast,
     setEditingBill,
+    openBillView,
   } = useApp();
 
-  const [detailBillId, setDetailBillId] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
 
-  const detailBill = bills.find((b) => b.id === detailBillId) ?? null;
-
   const isBillComplete = (bill: (typeof bills)[0]) =>
     bill.completed ?? bill.roommateShares.every((rs) => rs.status === "Paid");
-
-  const openBill = (billId: string) => {
-    void setActiveBillId(billId);
-    setDetailBillId(billId);
-  };
 
   const openPublicLink = async (billId: string) => {
     const link = await getShareLink(billId);
@@ -60,9 +51,8 @@ export function BillDetailsPage({ onBack }: BillDetailsPageProps) {
 
   const handleEdit = (bill: (typeof bills)[0]) => {
     setEditingBill(bill);
-    setDetailBillId(null);
     navigate("bills");
-    showToast("Bill loaded for editing — save as a new bill", "info");
+    showToast("Editing bill — save to update", "info");
   };
 
   if (bills.length === 0) {
@@ -105,7 +95,7 @@ export function BillDetailsPage({ onBack }: BillDetailsPageProps) {
               All Bills
             </h1>
             <p style={{ color: "var(--muted-foreground)", fontSize: "12px", marginTop: 2 }}>
-              {bills.length} bill{bills.length !== 1 ? "s" : ""} · Click a card to view details
+              {bills.length} bill{bills.length !== 1 ? "s" : ""} · Tap a card to view full details
             </p>
           </div>
         </div>
@@ -139,7 +129,7 @@ export function BillDetailsPage({ onBack }: BillDetailsPageProps) {
             >
               <button
                 type="button"
-                onClick={() => openBill(bill.id)}
+                onClick={() => openBillView(bill.id)}
                 className="w-full p-5 text-left"
                 style={{ background: "linear-gradient(135deg, #FAFBFF, #F5F3FF)" }}
               >
@@ -184,7 +174,7 @@ export function BillDetailsPage({ onBack }: BillDetailsPageProps) {
                   </div>
                 </div>
                 <p style={{ fontSize: "10px", color: "#4F46E5", fontWeight: 600, textAlign: "center" }}>
-                  Tap to open bill details →
+                  Tap to open bill →
                 </p>
               </button>
 
@@ -224,18 +214,6 @@ export function BillDetailsPage({ onBack }: BillDetailsPageProps) {
         })}
       </div>
 
-      <BillDetailModal
-        bill={detailBill}
-        onClose={() => setDetailBillId(null)}
-        onEdit={detailBill ? () => handleEdit(detailBill) : undefined}
-        onCopyLink={detailBill ? () => copyLink(detailBill.id) : undefined}
-        onOpenPublicLink={detailBill ? () => openPublicLink(detailBill.id) : undefined}
-        onDuplicate={detailBill ? () => void duplicateBill(detailBill.id) : undefined}
-        onMarkPaid={detailBill ? () => void markBillComplete(detailBill.id) : undefined}
-        onDelete={detailBill ? () => setDeleteTarget({ id: detailBill.id, title: detailBill.title || detailBill.month }) : undefined}
-        linkCopied={detailBill ? linkCopied === detailBill.id : false}
-      />
-
       <ConfirmDialog
         open={!!deleteTarget}
         title="Delete this bill?"
@@ -244,10 +222,7 @@ export function BillDetailsPage({ onBack }: BillDetailsPageProps) {
         variant="danger"
         onCancel={() => setDeleteTarget(null)}
         onConfirm={() => {
-          if (deleteTarget) {
-            void deleteBill(deleteTarget.id);
-            if (detailBillId === deleteTarget.id) setDetailBillId(null);
-          }
+          if (deleteTarget) void deleteBill(deleteTarget.id);
           setDeleteTarget(null);
         }}
       />

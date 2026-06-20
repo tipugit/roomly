@@ -69,7 +69,26 @@ export interface MemberShareBreakdown {
   rentShare: number;
   expenseShare: number;
   parkingShare: number;
+  /** Sum of expenses this member paid upfront (paidBy). */
+  upfrontPaid: number;
+  /** Gross split before upfront credits. */
+  grossTotal: number;
+  /** Amount still owed after upfront credits (grossTotal - upfrontPaid). */
+  netDue: number;
+  /** @deprecated Use grossTotal — kept for callers expecting .total */
   total: number;
+}
+
+/** Total amount a member paid upfront on bill expenses (full expense amounts). */
+export function getUpfrontPaidByMember(roommateId: number, expenses: Expense[]): number {
+  return expenses
+    .filter((e) => e.paidBy === roommateId)
+    .reduce((sum, e) => sum + e.amount, 0);
+}
+
+/** Remaining balance for a roommate after recorded payments. */
+export function getMemberAmountDue(share: RoommateShare): number {
+  return roundMoney(Math.max(0, share.share - share.paid));
 }
 
 export function buildMemberShareBreakdown(
@@ -100,12 +119,17 @@ export function buildMemberShareBreakdown(
     }
   }
 
-  const total = roundMoney(rentShare + expenseShare + parkingShare, roundUp);
+  const upfrontPaid = getUpfrontPaidByMember(roommateId, expenses);
+  const grossTotal = roundMoney(rentShare + expenseShare + parkingShare, roundUp);
+  const netDue = roundMoney(grossTotal - upfrontPaid, roundUp);
   return {
     rentShare: roundMoney(rentShare, roundUp),
     expenseShare: roundMoney(expenseShare, roundUp),
     parkingShare: roundMoney(parkingShare, roundUp),
-    total,
+    upfrontPaid: roundMoney(upfrontPaid, roundUp),
+    grossTotal,
+    netDue,
+    total: grossTotal,
   };
 }
 
@@ -274,19 +298,36 @@ export function buildRoommateShares(
 
   return selectedIds.map((id) => {
     const breakdown = buildMemberShareBreakdown(id, selectedIds, rent, expenses, parking, roundUp);
-    const paid = expenses
-      .filter((e) => e.paidBy === id)
-      .reduce((sum, e) => sum + e.amount, 0);
+    const upfront = breakdown.upfrontPaid;
+    const netShare = breakdown.netDue;
     const existingShare = existing?.find((s) => s.roommateId === id);
-    const paidAmount = existingShare?.paid ?? paid;
+    const storedPaid = existingShare?.paid ?? 0;
+    // Upfront payments are baked into netShare; paid tracks additional collections only.
+    const paid = roundMoney(Math.max(0, storedPaid - upfront), roundUp);
 
     return {
       roommateId: id,
-      share: breakdown.total,
-      paid: paidAmount,
-      status: getPayStatusFromAmount(paidAmount, breakdown.total),
+      share: netShare,
+      paid,
+      status: getPayStatusFromAmount(paid, netShare),
     };
   });
+}
+
+/** Recompute roommate shares from bill data (preserves manual payment records). */
+export function normalizeBillShares(
+  bill: Pick<Bill, "rent" | "expenses" | "selectedRoommateIds" | "parkingSnapshot" | "roommateShares">,
+  roundUp = false
+): RoommateShare[] {
+  return buildRoommateShares(
+    [],
+    bill.selectedRoommateIds,
+    bill.rent,
+    bill.expenses,
+    bill.roommateShares,
+    bill.parkingSnapshot,
+    roundUp
+  );
 }
 
 export function getPayStatusFromAmount(paid: number, share: number): PayStatus {
@@ -325,6 +366,17 @@ export function getRoommateById(roommates: Roommate[], id: number) {
 export async function getShareLink(billId: string) {
   const res = await api.createShareToken(billId);
   return buildShareUrlFromToken(res.token);
+}
+
+export async function copyBillLink(
+  billId: string,
+  showToast: (msg: string, type: "success" | "error" | "info") => void
+) {
+  const link = await getShareLink(billId);
+  const ok = await copyToClipboard(link);
+  if (ok) showToast("Share link copied!", "success");
+  else showToast("Failed to copy link", "error");
+  return ok;
 }
 
 export async function copyToClipboard(text: string) {

@@ -19,6 +19,7 @@ import {
   calcCollectionSummary,
   formatAmount,
   formatParkingShareLabel,
+  getMemberAmountDue,
   getParkingShareMemberIds,
 } from "@/lib/utils";
 
@@ -80,10 +81,11 @@ function SectionCard({
 
 const monthOptions = buildMonthOptions();
 
-export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
-  const { roommates, settings, createBill, showToast, editingBill, setEditingBill } = useApp();
+export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) => void }) {
+  const { roommates, settings, createBill, updateBill, showToast, editingBill, setEditingBill } = useApp();
 
   const defaultMonth = formatMonthYear();
+  const [editBillId, setEditBillId] = useState<string | null>(null);
   const [month, setMonth] = useState(defaultMonth);
   const [extraBillMonth, setExtraBillMonth] = useState(defaultMonth);
   const isExtraBill = month === "Extra Bill";
@@ -165,6 +167,7 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
 
   useEffect(() => {
     if (!editingBill) return;
+    setEditBillId(editingBill.id);
     const isExtra = editingBill.isExtraBill ?? editingBill.month.startsWith("Extra Bill");
     if (isExtra) {
       setMonth("Extra Bill");
@@ -236,7 +239,7 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
 
   const breakdown = roommateShares.map((rs) => {
     const r = roommates.find((rm) => rm.id === rs.roommateId)!;
-    const owes = rs.share - rs.paid;
+    const amountDue = getMemberAmountDue(rs);
     const calc = buildMemberShareBreakdown(
       rs.roommateId,
       selected,
@@ -245,10 +248,10 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
       parkingSnapshot,
       roundUp
     );
-    return { ...r, paid: rs.paid, owes, share: rs.share, calc };
+    return { ...r, paid: rs.paid, amountDue, share: rs.share, calc };
   });
 
-  const handleCreate = async () => {
+  const handleSave = async () => {
     if (selected.length === 0) {
       showToast("Select at least one roommate to split the bill", "error");
       return;
@@ -266,7 +269,7 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
       }
     }
 
-    await createBill({
+    const payload = {
       title: billTitle.trim() || billMonth,
       month: billMonth,
       houseName: houseName.trim(),
@@ -277,10 +280,23 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
       announcementMessage: announcementMessage.trim(),
       parkingSnapshot,
       isExtraBill,
-    });
+    };
 
-    setSaved(true);
-    onCreated?.();
+    if (editBillId) {
+      const ok = await updateBill(editBillId, payload);
+      if (ok) {
+        setSaved(true);
+        setEditBillId(null);
+        onCreated?.(editBillId);
+      }
+      return;
+    }
+
+    const bill = await createBill(payload);
+    if (bill) {
+      setSaved(true);
+      onCreated?.(bill.id);
+    }
   };
 
   return (
@@ -295,10 +311,10 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
               letterSpacing: "-0.5px",
             }}
           >
-            Create Monthly Bill
+            {editBillId ? "Edit Bill" : "Create Monthly Bill"}
           </h1>
           <p style={{ color: "var(--muted-foreground)", fontSize: "12px", marginTop: 2 }}>
-            Build, split and share house expenses
+            {editBillId ? "Update this bill and save changes" : "Build, split and share house expenses"}
           </p>
         </div>
         <div
@@ -913,7 +929,7 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
             <div className="px-6 pb-6">
               <button
                 type="button"
-                onClick={handleCreate}
+                onClick={handleSave}
                 disabled={saved}
                 className="w-full py-3.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2"
                 style={{
@@ -921,18 +937,20 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
                     ? "linear-gradient(135deg, #10B981, #059669)"
                     : "white",
                   color: saved ? "white" : "#4F46E5",
-                  fontSize: "14px",
+                  fontSize: "16px",
                   boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
                   opacity: saved ? 0.9 : 1,
                 }}
               >
                 {saved ? (
                   <>
-                    <CheckCircle2 size={16} /> Bill Created!
+                    <CheckCircle2 size={16} />
+                    {editBillId ? "Bill Updated!" : "Bill Created!"}
                   </>
                 ) : (
                   <>
-                    <Sparkles size={15} /> Create & Share Bill
+                    <Calculator size={16} />
+                    {editBillId ? "Save Changes" : "Create Bill"}
                   </>
                 )}
               </button>
@@ -976,27 +994,26 @@ export function BillCreationPage({ onCreated }: { onCreated?: () => void }) {
                       Rent {formatAmount(r.calc.rentShare, roundUp)}
                       {r.calc.expenseShare > 0 && ` + Exp ${formatAmount(r.calc.expenseShare, roundUp)}`}
                       {r.calc.parkingShare > 0 && ` + Parking ${formatAmount(r.calc.parkingShare, roundUp)}`}
+                      {r.calc.upfrontPaid > 0 && ` − Prepaid ${formatAmount(r.calc.upfrontPaid, roundUp)}`}
                     </div>
                     {r.paid > 0 && (
                       <div style={{ color: "#10B981", fontSize: "10px" }}>
-                        Advanced ${r.paid}
+                        Collected {formatAmount(r.paid, roundUp)}
                       </div>
                     )}
                   </div>
                   <div
                     className="px-2.5 py-1 rounded-lg font-bold text-xs text-right"
                     style={{
-                      background: r.owes > 0 ? "#FEF2F2" : "#ECFDF5",
-                      color: r.owes > 0 ? "#EF4444" : "#10B981",
+                      background: r.amountDue > 0 ? "#FEF2F2" : "#ECFDF5",
+                      color: r.amountDue > 0 ? "#EF4444" : "#10B981",
                     }}
                   >
-                    <div>{formatAmount(r.share, roundUp)}</div>
+                    <div>{formatAmount(r.amountDue, roundUp)}</div>
                     <div style={{ fontSize: "9px", fontWeight: 500, opacity: 0.85 }}>
-                      {r.owes > 0
-                        ? `Owes ${formatAmount(r.owes, roundUp)}`
-                        : r.owes < 0
-                          ? `Gets ${formatAmount(Math.abs(r.owes), roundUp)}`
-                          : "Settled"}
+                      {r.amountDue > 0
+                        ? "Still owed"
+                        : "Settled"}
                     </div>
                   </div>
                 </div>

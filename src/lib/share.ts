@@ -67,21 +67,39 @@ export function buildShareUrl(encoded: string): string {
   return `${base}#/share/${encoded}`;
 }
 
-export function parseHashRoute(): { page: string; shareData: string | null; shareToken: string | null } {
+export function parseHashRoute(): {
+  page: string;
+  shareData: string | null;
+  shareToken: string | null;
+  billId: string | null;
+} {
   const hash = window.location.hash.replace(/^#/, "");
-  if (!hash || hash === "/") return { page: "landing", shareData: null, shareToken: null };
+  if (!hash || hash === "/") {
+    return { page: "landing", shareData: null, shareToken: null, billId: null };
+  }
 
   if (hash.startsWith("/s/") || hash.startsWith("/share/")) {
     const prefix = hash.startsWith("/s/") ? "/s/" : "/share/";
     const data = hash.slice(prefix.length);
     if (/^[a-zA-Z0-9]{4,32}$/.test(data) && !data.includes(".") && data.length < 40) {
-      return { page: "shared-bill", shareData: null, shareToken: data };
+      return { page: "shared-bill", shareData: null, shareToken: data, billId: null };
     }
-    return { page: "shared-bill", shareData: data, shareToken: null };
+    return { page: "shared-bill", shareData: data, shareToken: null, billId: null };
   }
 
-  const page = hash.replace(/^\//, "").split("?")[0];
-  return { page: page || "dashboard", shareData: null, shareToken: null };
+  const segments = hash.replace(/^\//, "").split("/").filter(Boolean);
+  const page = segments[0] || "dashboard";
+
+  if (page === "bill-details" && segments[1]) {
+    return {
+      page: "bill-details",
+      shareData: null,
+      shareToken: null,
+      billId: decodeURIComponent(segments[1]),
+    };
+  }
+
+  return { page, shareData: null, shareToken: null, billId: null };
 }
 
 export function buildShareUrlFromToken(token: string): string {
@@ -91,13 +109,24 @@ export function buildShareUrlFromToken(token: string): string {
   return `${base}#/s/${token}`;
 }
 
-export function setHashRoute(page: string) {
+export function setHashRoute(page: string, billId?: string | null) {
   if (page === "shared-bill") return;
-  const normalized = page === "bill-details" ? "expenses" : page;
-  const next = `#/${normalized}`;
+  const next =
+    page === "bill-details" && billId
+      ? `#/bill-details/${encodeURIComponent(billId)}`
+      : `#/${page === "bill-details" ? "expenses" : page}`;
   if (window.location.hash !== next) {
     const url = `${window.location.pathname}${window.location.search}${next}`;
     window.history.replaceState(null, "", url);
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+  }
+}
+
+export function setBillViewRoute(billId: string) {
+  const next = `#/bill-details/${encodeURIComponent(billId)}`;
+  if (window.location.hash !== next) {
+    const url = `${window.location.pathname}${window.location.search}${next}`;
+    window.history.pushState(null, "", url);
     window.dispatchEvent(new HashChangeEvent("hashchange"));
   }
 }

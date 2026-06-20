@@ -8,13 +8,14 @@ import {
   type ReactNode,
 } from "react";
 import { initialState } from "@/data/initialData";
-import { buildRoommateShares, buildParkingSnapshotFromSettings } from "@/lib/utils";
+import { buildRoommateShares, buildParkingSnapshotFromSettings, normalizeBillShares } from "@/lib/utils";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import {
   decodeSharePayload,
   parseHashRoute,
   setHashRoute,
+  setBillViewRoute,
   type SharePayload,
 } from "@/lib/share";
 import type {
@@ -79,8 +80,25 @@ interface AppContextValue {
     parkingSnapshot?: import("@/types").ParkingSnapshot | null;
     isExtraBill?: boolean;
   }) => Promise<Bill | null>;
+  updateBill: (
+    id: string,
+    data: {
+      title?: string;
+      month: string;
+      houseName: string;
+      rent: number;
+      expenses: Expense[];
+      selectedRoommateIds: number[];
+      announcementTitle?: string;
+      announcementMessage?: string;
+      parkingSnapshot?: import("@/types").ParkingSnapshot | null;
+      isExtraBill?: boolean;
+    }
+  ) => Promise<boolean>;
   editingBill: Bill | null;
   setEditingBill: (bill: Bill | null) => void;
+  viewBillId: string | null;
+  openBillView: (billId: string) => void;
   deleteBill: (id: string) => Promise<void>;
   duplicateBill: (id: string) => Promise<void>;
   markBillComplete: (id: string) => Promise<void>;
@@ -98,15 +116,24 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
-function resolveInitialPage(): { page: Page; shareToken: string | null; shareData: string | null } {
-  const { page, shareData, shareToken } = parseHashRoute();
+function resolveInitialPage(): {
+  page: Page;
+  shareToken: string | null;
+  shareData: string | null;
+  billId: string | null;
+} {
+  const { page, shareData, shareToken, billId } = parseHashRoute();
   if (page === "shared-bill" && (shareToken || shareData)) {
-    return { page: "shared-bill", shareToken, shareData };
+    return { page: "shared-bill", shareToken, shareData, billId: null };
+  }
+  if (page === "bill-details" && billId) {
+    return { page: "bill-details", shareToken: null, shareData: null, billId };
   }
   if (VALID_PAGES.includes(page as Page) && page !== "shared-bill") {
-    return { page: page as Page, shareToken: null, shareData: null };
+    const normalized = page === "bill-details" ? "expenses" : (page as Page);
+    return { page: normalized, shareToken: null, shareData: null, billId: null };
   }
-  return { page: "dashboard", shareToken: null, shareData: null };
+  return { page: "dashboard", shareToken: null, shareData: null, billId: null };
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -116,6 +143,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const state = appState ?? initialState;
 
   const [page, setPageState] = useState<Page>(initial.page);
+  const [viewBillId, setViewBillId] = useState<string | null>(initial.billId ?? null);
   const [sharedPayload, setSharedPayload] = useState<SharePayload | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -123,14 +151,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const applyState = useCallback(
     (next: typeof state) => {
-      setAppState(next);
+      const roundUp = next.settings.roundUpAmounts ?? false;
+      const bills = next.bills.map((bill) => ({
+        ...bill,
+        roommateShares: normalizeBillShares(bill, roundUp),
+      }));
+      setAppState({ ...next, bills });
     },
     [setAppState]
   );
 
   const setPage = useCallback((p: Page) => {
     setPageState(p);
+    if (p !== "bill-details") setViewBillId(null);
     setHashRoute(p);
+  }, []);
+
+  const openBillView = useCallback((billId: string) => {
+    setViewBillId(billId);
+    setPageState("bill-details");
+    setBillViewRoute(billId);
+    void api.setActiveBill(billId);
   }, []);
 
   // Load shared bill from token or encoded hash
@@ -163,7 +204,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const onHashChange = () => {
-      const { page: hashPage, shareData, shareToken } = parseHashRoute();
+      const { page: hashPage, shareData, shareToken, billId } = parseHashRoute();
       if (hashPage === "shared-bill") {
         if (shareToken) {
           api.getShare(shareToken).then((res) => {
@@ -181,9 +222,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
         return;
       }
+      if (hashPage === "bill-details" && billId) {
+        setSharedPayload(null);
+        setViewBillId(billId);
+        setPageState("bill-details");
+        return;
+      }
       if (VALID_PAGES.includes(hashPage as Page) && hashPage !== "shared-bill") {
         setSharedPayload(null);
-        setPageState(hashPage as Page);
+        setViewBillId(null);
+        setPageState(hashPage === "bill-details" ? "expenses" : (hashPage as Page));
       }
     };
     window.addEventListener("hashchange", onHashChange);
@@ -311,6 +359,45 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [state.roommates, state.settings, applyState, showToast]
   );
 
+  const updateBill = useCallback(
+    async (id: string, data: Parameters<AppContextValue["updateBill"]>[1]) => {
+      const existing = state.bills.find((b) => b.id === id);
+      const parkingSnapshot =
+        data.parkingSnapshot ?? buildParkingSnapshotFromSettings(state.settings);
+      const roommateShares = buildRoommateShares(
+        state.roommates,
+        data.selectedRoommateIds,
+        data.rent,
+        data.expenses,
+        existing?.roommateShares,
+        parkingSnapshot,
+        state.settings.roundUpAmounts ?? false
+      );
+      try {
+        const res = await api.updateBill(id, {
+          title: data.title ?? "",
+          month: data.month,
+          houseName: data.houseName,
+          rent: data.rent,
+          expenses: data.expenses,
+          selectedRoommateIds: data.selectedRoommateIds,
+          roommateShares,
+          announcementTitle: data.announcementTitle ?? "",
+          announcementMessage: data.announcementMessage ?? "",
+          parkingSnapshot,
+          isExtraBill: data.isExtraBill ?? false,
+        });
+        applyState(res.state);
+        showToast("Bill updated successfully!", "success");
+        return true;
+      } catch (e) {
+        showToast(e instanceof ApiError ? e.message : "Failed to update bill", "error");
+        return false;
+      }
+    },
+    [state.bills, state.roommates, state.settings, applyState, showToast]
+  );
+
   const deleteBill = useCallback(
     async (id: string) => {
       try {
@@ -352,7 +439,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const updatePayment = useCallback(
     async (roommateId: number, paid: number) => {
-      const billId = state.activeBillId ?? state.bills[0]?.id;
+      const billId = viewBillId ?? state.activeBillId ?? state.bills[0]?.id;
       if (!billId) return;
       try {
         const res = await api.updatePayment(billId, roommateId, paid);
@@ -365,7 +452,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         showToast(e instanceof ApiError ? e.message : "Payment update failed", "error");
       }
     },
-    [state.activeBillId, state.bills, state.roommates, applyState, showToast]
+    [viewBillId, state.activeBillId, state.bills, state.roommates, applyState, showToast]
   );
 
   const updateSettings = useCallback(
@@ -462,8 +549,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     updateRoommate,
     deleteRoommate,
     createBill,
+    updateBill,
     editingBill,
     setEditingBill,
+    viewBillId,
+    openBillView,
     deleteBill,
     duplicateBill,
     markBillComplete,
