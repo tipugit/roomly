@@ -16,7 +16,9 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { useApp } from "@/context/AppContext";
 import { BillAnnouncements } from "@/components/BillAnnouncements";
 import { CollectionSummaryCard } from "@/components/CollectionSummaryCard";
+import { MemberCalculationPanel } from "@/components/MemberCalculationPanel";
 import {
+  buildMemberCalculationSteps,
   buildMemberShareBreakdown,
   calcCollectionSummary,
   formatCurrencyDetailed,
@@ -86,6 +88,16 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
         bill.parkingSnapshot,
         roundUp
       );
+      const calcLines = buildMemberCalculationSteps(
+        rs.roommateId,
+        bill.rent,
+        bill.expenses,
+        bill.selectedRoommateIds,
+        bill.parkingSnapshot,
+        billRoommates,
+        rs.paid,
+        roundUp
+      );
       const amountDue = getMemberAmountDue(rs);
       return {
         roommateId: rs.roommateId,
@@ -98,6 +110,7 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
         amountDue,
         status: rs.status,
         calc,
+        calcLines,
       };
     });
   }, [bill, billRoommates, roommates, sharedPayload, settings.roundUpAmounts]);
@@ -230,10 +243,10 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-4 py-10 space-y-6">
+      <div className="max-w-3xl mx-auto px-4 py-5 space-y-4">
         {/* Hero */}
         <div
-          className="rounded-3xl p-8 text-center relative overflow-hidden"
+          className="rounded-2xl p-6 text-center relative overflow-hidden"
           style={{
             background: "linear-gradient(135deg, #312E81 0%, #4F46E5 40%, #7C3AED 70%, #0D9488 100%)",
             boxShadow: "0 32px 80px rgba(79,70,229,0.35)",
@@ -543,80 +556,65 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
         {/* Individual Splits */}
         <div
           className="rounded-2xl overflow-hidden"
-          style={{ background: "white", border: "1px solid rgba(79,70,229,0.1)", boxShadow: "0 2px 20px rgba(79,70,229,0.06)" }}
+          style={{ background: "white", border: "1px solid rgba(79,70,229,0.1)", boxShadow: "0 2px 16px rgba(79,70,229,0.06)" }}
         >
-          <div className="px-6 py-4" style={{ borderBottom: "1px solid rgba(79,70,229,0.06)", background: "#F8FAFC" }}>
-            <h2 style={{ color: "#0F0D2A", fontWeight: 700, fontSize: "16px" }}>Individual Splits</h2>
-            <p style={{ color: "#64748B", fontSize: "12px", marginTop: 2 }}>
-              Rent + expenses + parking, minus any upfront payments
+          <div className="px-5 py-3.5" style={{ borderBottom: "1px solid rgba(79,70,229,0.06)", background: "#F8FAFC" }}>
+            <h2 style={{ color: "#0F0D2A", fontWeight: 700, fontSize: "15px" }}>Individual Splits</h2>
+            <p style={{ color: "#64748B", fontSize: "11px", marginTop: 2 }}>
+              Each member&apos;s share — expand to see the full calculation
             </p>
           </div>
-          <div className="p-4 space-y-3">
+          <div className="p-3 space-y-2.5">
             {roommateRows.map((r) => {
               const sc = statusConfig[r.status];
               return (
                 <div
                   key={r.roommateId}
-                  className="rounded-2xl overflow-hidden"
-                  style={{ border: "1px solid rgba(79,70,229,0.08)" }}
+                  className="rounded-xl overflow-hidden"
+                  style={{
+                    border: `2px solid ${r.color}`,
+                    boxShadow: `0 2px 12px ${r.color}14`,
+                  }}
                 >
-                  <div className="flex items-center gap-4 p-4" style={{ background: "#F8FAFC" }}>
+                  <div className="flex items-center gap-3 p-3.5" style={{ background: `${r.color}08` }}>
                     <div
-                      className="w-11 h-11 rounded-2xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
-                      style={{ background: r.color, boxShadow: `0 4px 12px ${r.color}40` }}
+                      className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                      style={{ background: r.color, boxShadow: `0 3px 10px ${r.color}35` }}
                     >
                       {r.initials}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div style={{ color: "#0F0D2A", fontWeight: 600, fontSize: "14px" }}>{r.name}</div>
-                      <div style={{ color: "#94A3B8", fontSize: "12px" }}>Room {r.room}</div>
+                      <div style={{ color: "#94A3B8", fontSize: "11px" }}>Room {r.room}</div>
                     </div>
-                    <div className="text-right">
-                      <div style={{ color: "#0F0D2A", fontWeight: 800, fontSize: "18px" }}>
+                    <div className="text-right flex-shrink-0">
+                      <div style={{ fontSize: "10px", color: "#64748B", fontWeight: 600 }}>OWES</div>
+                      <div style={{ color: r.color, fontWeight: 800, fontSize: "18px", letterSpacing: "-0.3px" }}>
                         {formatCurrencyDetailed(r.amountDue)}
                       </div>
-                      {r.calc.upfrontPaid > 0 && (
-                        <div style={{ color: "#10B981", fontSize: "10px", fontWeight: 600 }}>
-                          −{formatCurrencyDetailed(r.calc.upfrontPaid)} prepaid
-                        </div>
-                      )}
                       <div className="flex items-center gap-1 justify-end mt-0.5">
                         {sc.icon}
-                        <span style={{ color: sc.text, fontSize: "11px", fontWeight: 600 }}>{sc.label}</span>
+                        <span style={{ color: sc.text, fontSize: "10px", fontWeight: 600 }}>{sc.label}</span>
                       </div>
                     </div>
                   </div>
-                  <div
-                    className="px-4 py-3 flex flex-wrap gap-x-4 gap-y-1"
-                    style={{ background: "white", borderTop: "1px solid rgba(79,70,229,0.06)" }}
-                  >
-                    <span style={{ fontSize: "11px", color: "#64748B" }}>
-                      Rent <strong style={{ color: "#4F46E5" }}>{formatCurrencyDetailed(r.calc.rentShare)}</strong>
+                  <div className="px-3.5 py-2 flex flex-wrap gap-2" style={{ background: "white", borderTop: `1px solid ${r.color}18` }}>
+                    <span className="px-2 py-0.5 rounded-md" style={{ fontSize: "10px", background: "#EEF2FF", color: "#4F46E5" }}>
+                      Rent {formatCurrencyDetailed(r.calc.rentShare)}
                     </span>
-                    <span style={{ fontSize: "11px", color: "#94A3B8" }}>+</span>
-                    <span style={{ fontSize: "11px", color: "#64748B" }}>
-                      Expenses <strong style={{ color: "#06B6D4" }}>{formatCurrencyDetailed(r.calc.expenseShare)}</strong>
-                    </span>
+                    {r.calc.expenseShare > 0 && (
+                      <span className="px-2 py-0.5 rounded-md" style={{ fontSize: "10px", background: "#ECFEFF", color: "#0891B2" }}>
+                        Expenses {formatCurrencyDetailed(r.calc.expenseShare)}
+                      </span>
+                    )}
                     {r.calc.parkingShare > 0 && (
-                      <>
-                        <span style={{ fontSize: "11px", color: "#94A3B8" }}>+</span>
-                        <span style={{ fontSize: "11px", color: "#64748B" }}>
-                          Parking <strong style={{ color: "#10B981" }}>{formatCurrencyDetailed(r.calc.parkingShare)}</strong>
-                        </span>
-                      </>
+                      <span className="px-2 py-0.5 rounded-md" style={{ fontSize: "10px", background: "#ECFDF5", color: "#059669" }}>
+                        Parking {formatCurrencyDetailed(r.calc.parkingShare)}
+                      </span>
                     )}
-                    {r.calc.upfrontPaid > 0 && (
-                      <>
-                        <span style={{ fontSize: "11px", color: "#94A3B8" }}>−</span>
-                        <span style={{ fontSize: "11px", color: "#64748B" }}>
-                          Prepaid <strong style={{ color: "#10B981" }}>{formatCurrencyDetailed(r.calc.upfrontPaid)}</strong>
-                        </span>
-                      </>
-                    )}
-                    <span style={{ fontSize: "11px", color: "#94A3B8" }}>=</span>
-                    <span style={{ fontSize: "11px", color: "#0F0D2A", fontWeight: 700 }}>
-                      {formatCurrencyDetailed(r.share)}
-                    </span>
+                  </div>
+                  <div className="px-3.5 pb-3">
+                    <MemberCalculationPanel lines={r.calcLines} roundUp={settings.roundUpAmounts ?? false} accentColor={r.color} />
                   </div>
                 </div>
               );
@@ -625,7 +623,7 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
         </div>
 
         {/* Footer */}
-        <div className="text-center py-6 space-y-2">
+        <div className="text-center py-4 space-y-1.5">
           <div className="flex items-center justify-center gap-2.5 mb-3">
             <div
               className="w-7 h-7 rounded-xl flex items-center justify-center"

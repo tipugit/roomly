@@ -78,7 +78,7 @@ export function BillDetailsPage({ onBack }: BillDetailsPageProps) {
   }
 
   return (
-    <div className="space-y-6 max-w-[1200px] mx-auto">
+    <div className="space-y-4 max-w-[1200px] mx-auto">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           {onBack && (

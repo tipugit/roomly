@@ -12,7 +12,7 @@ const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", id: "dashboard", badgeKey: null as string | null },
   { icon: Users, label: "Roommates", id: "roommates", badgeKey: "roommates" },
   { icon: FileText, label: "Create Bill", id: "bills", badgeKey: null },
-  { icon: Receipt, label: "All Bills", id: "expenses", badgeKey: "pending" },
+  { icon: Receipt, label: "All Bills", id: "expenses", badgeKey: "bills" },
   { icon: BarChart3, label: "Analytics", id: "analytics", badgeKey: null },
   { icon: Settings, label: "Settings", id: "settings", badgeKey: null },
 ];
@@ -20,7 +20,7 @@ const navItems = [
 const mobileNavItems = [
   { icon: LayoutDashboard, label: "Dashboard", id: "dashboard" },
   { icon: Users, label: "Roommates", id: "roommates" },
-  { icon: Receipt, label: "All Bills", id: "expenses" },
+  { icon: Receipt, label: "All Bills", id: "expenses", badgeKey: "bills" },
   { icon: BarChart3, label: "Analytics", id: "analytics" },
 ];
 
@@ -31,7 +31,7 @@ interface LayoutProps {
 
 export function Layout({ children, activePage }: LayoutProps) {
   const {
-    navigate, darkMode, toggleDark, roommates, pendingBillsCount,
+    navigate, darkMode, toggleDark, roommates, billsCount,
     activeBill, settings, activities, setSearchOpen, showToast, logout,
   } = useApp();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -41,7 +41,7 @@ export function Layout({ children, activePage }: LayoutProps) {
   const getBadge = (key: string | null) => {
     if (!key) return null;
     if (key === "roommates") return String(roommates.length);
-    if (key === "pending" && pendingBillsCount > 0) return String(pendingBillsCount);
+    if (key === "bills" && billsCount > 0) return String(billsCount);
     return null;
   };
 
@@ -367,23 +367,32 @@ export function Layout({ children, activePage }: LayoutProps) {
             height: 60,
           }}
         >
-          {mobileNavItems.map(({ icon: Icon, label, id }) => {
+          {mobileNavItems.map(({ icon: Icon, label, id, badgeKey }) => {
             const isActive = activePage === id;
+            const badge = getBadge(badgeKey ?? null);
             return (
               <button
                 key={id}
                 onClick={() => navigate(id)}
-                className="flex-1 flex flex-col items-center justify-center gap-0.5 transition-all active:scale-90"
+                className="flex-1 flex flex-col items-center justify-center gap-0.5 transition-all active:scale-90 relative"
                 style={{ minWidth: 0 }}
               >
                 <div
-                  className="w-8 h-8 rounded-xl flex items-center justify-center transition-all"
+                  className="w-8 h-8 rounded-xl flex items-center justify-center transition-all relative"
                   style={{
                     background: isActive ? "linear-gradient(135deg, #4F46E5, #7C3AED)" : "transparent",
                     boxShadow: isActive ? "0 2px 8px rgba(79,70,229,0.3)" : "none",
                   }}
                 >
                   <Icon size={16} style={{ color: isActive ? "white" : "#94A3B8" }} />
+                  {badge && (
+                    <span
+                      className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-white"
+                      style={{ background: "#4F46E5", fontSize: "8px", fontWeight: 700 }}
+                    >
+                      {badge}
+                    </span>
+                  )}
                 </div>
                 <span style={{ fontSize: "9px", fontWeight: isActive ? 700 : 400, color: isActive ? "#4F46E5" : "#94A3B8", letterSpacing: "0.2px" }}>
                   {label}

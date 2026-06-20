@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -98,7 +99,7 @@ interface AppContextValue {
   editingBill: Bill | null;
   setEditingBill: (bill: Bill | null) => void;
   viewBillId: string | null;
-  openBillView: (billId: string) => void;
+  openBillView: (billId: string, refresh?: boolean) => void;
   deleteBill: (id: string) => Promise<void>;
   duplicateBill: (id: string) => Promise<void>;
   markBillComplete: (id: string) => Promise<void>;
@@ -109,6 +110,9 @@ interface AppContextValue {
   importData: (file: File) => Promise<boolean>;
   resetApp: () => Promise<void>;
   pendingBillsCount: number;
+  billsCount: number;
+  billViewRevision: number;
+  refreshAppState: () => Promise<void>;
   searchOpen: boolean;
   setSearchOpen: (open: boolean) => void;
   logout: () => Promise<void>;
@@ -141,6 +145,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const initial = resolveInitialPage();
 
   const state = appState ?? initialState;
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   const [page, setPageState] = useState<Page>(initial.page);
   const [viewBillId, setViewBillId] = useState<string | null>(initial.billId ?? null);
@@ -148,6 +154,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<Bill | null>(null);
+  const [billViewRevision, setBillViewRevision] = useState(0);
 
   const applyState = useCallback(
     (next: typeof state) => {
@@ -156,10 +163,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ...bill,
         roommateShares: normalizeBillShares(bill, roundUp),
       }));
-      setAppState({ ...next, bills });
+      const normalized = { ...next, bills };
+      stateRef.current = normalized;
+      setAppState(normalized);
     },
     [setAppState]
   );
+
+  const refreshAppState = useCallback(async () => {
+    try {
+      const res = await api.sync();
+      applyState(res.state);
+    } catch {
+      /* sync unavailable */
+    }
+  }, [applyState]);
 
   const setPage = useCallback((p: Page) => {
     setPageState(p);
@@ -167,12 +185,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setHashRoute(p);
   }, []);
 
-  const openBillView = useCallback((billId: string) => {
+  const openBillView = useCallback((billId: string, refresh = false) => {
     setViewBillId(billId);
     setPageState("bill-details");
     setBillViewRoute(billId);
+    if (refresh) setBillViewRevision((r) => r + 1);
+    applyState({ ...stateRef.current, activeBillId: billId });
     void api.setActiveBill(billId);
-  }, []);
+  }, [applyState]);
 
   // Load shared bill from token or encoded hash
   useEffect(() => {
@@ -350,13 +370,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
         applyState(res.state);
         showToast("Bill created successfully!", "success");
+        await refreshAppState();
         return res.state.bills.find((b) => b.id === res.state.activeBillId) ?? res.state.bills[0] ?? null;
       } catch (e) {
         showToast(e instanceof ApiError ? e.message : "Failed to create bill", "error");
         return null;
       }
     },
-    [state.roommates, state.settings, applyState, showToast]
+    [state.roommates, state.settings, applyState, showToast, refreshAppState]
   );
 
   const updateBill = useCallback(
@@ -389,13 +410,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
         applyState(res.state);
         showToast("Bill updated successfully!", "success");
+        await refreshAppState();
         return true;
       } catch (e) {
         showToast(e instanceof ApiError ? e.message : "Failed to update bill", "error");
         return false;
       }
     },
-    [state.bills, state.roommates, state.settings, applyState, showToast]
+    [state.bills, state.roommates, state.settings, applyState, showToast, refreshAppState]
   );
 
   const deleteBill = useCallback(
@@ -461,23 +483,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const res = await api.updateSettings(settings, state.darkMode);
         applyState(res.state);
         showToast("Settings saved successfully!", "success");
+        await refreshAppState();
       } catch (e) {
         showToast(e instanceof ApiError ? e.message : "Save failed", "error");
       }
     },
-    [state.darkMode, applyState, showToast]
+    [state.darkMode, applyState, showToast, refreshAppState]
   );
 
   const setActiveBillId = useCallback(
     async (id: string) => {
       try {
         await api.setActiveBill(id);
-        applyState({ ...state, activeBillId: id });
       } catch {
-        applyState({ ...state, activeBillId: id });
+        /* keep local selection */
       }
+      applyState({ ...stateRef.current, activeBillId: id });
     },
-    [state, applyState]
+    [applyState]
   );
 
   const exportData = useCallback(() => {
@@ -530,6 +553,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [activeBill]
   );
 
+  const billsCount = state.bills.length;
+
   const value: AppContextValue = {
     page,
     setPage,
@@ -564,6 +589,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     importData,
     resetApp,
     pendingBillsCount,
+    billsCount,
+    billViewRevision,
+    refreshAppState,
     searchOpen,
     setSearchOpen,
     logout,

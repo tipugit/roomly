@@ -26,7 +26,7 @@ function LoadingScreen() {
 
 function AppContent() {
   const { user } = useAuth();
-  const { page, setPage, sharedPayload, viewBillId, openBillView } = useApp();
+  const { page, setPage, sharedPayload, viewBillId, openBillView, billViewRevision } = useApp();
 
   if (page === "shared-bill") {
     return (
@@ -58,13 +58,17 @@ function AppContent() {
         return (
           <BillCreationPage
             onCreated={(billId) => {
-              if (billId) openBillView(billId);
+              if (billId) openBillView(billId, true);
               else setPage("expenses");
             }}
           />
         );
       case "bill-details":
-        return viewBillId ? <BillViewPage billId={viewBillId} /> : <BillDetailsPage />;
+        return viewBillId ? (
+          <BillViewPage key={`${viewBillId}-${billViewRevision}`} billId={viewBillId} />
+        ) : (
+          <BillDetailsPage />
+        );
       case "expenses":
         return <BillDetailsPage />;
       case "analytics": return <AnalyticsPage />;

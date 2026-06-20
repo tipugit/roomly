@@ -211,10 +211,11 @@ export function buildMemberCalculationSteps(
   lines.push({ type: "subtotal", label: "Gross total (before credits)", amount: breakdown.grossTotal });
 
   for (const expense of expenses.filter((e) => e.paidBy === roommateId)) {
+    const expenseLabel = expense.name || expense.category;
     lines.push({
       type: "subtract",
-      label: `Credit — ${expense.name || expense.category}`,
-      detail: "You paid this expense upfront; deducted from your balance",
+      label: `Prepaid (${expenseLabel})`,
+      detail: `You paid $${expense.amount.toLocaleString()} upfront for ${expenseLabel}`,
       amount: roundMoney(expense.amount, roundUp),
     });
   }

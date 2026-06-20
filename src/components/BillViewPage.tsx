@@ -182,7 +182,7 @@ export function BillViewPage({ billId }: BillViewPageProps) {
   };
 
   return (
-    <div className="max-w-[900px] mx-auto space-y-5 pb-6">
+    <div className="max-w-[900px] mx-auto space-y-4 pb-4">
       {/* Header */}
       <div className="flex flex-col gap-4">
         <div className="flex items-center gap-3 min-w-0">
@@ -332,8 +332,8 @@ export function BillViewPage({ billId }: BillViewPageProps) {
 
       {/* Member cards — full width, stacked */}
       <div>
-        <h3 style={{ fontWeight: 700, fontSize: "16px", marginBottom: 10 }}>Member Balances</h3>
-        <div className="space-y-4">
+        <h3 style={{ fontWeight: 700, fontSize: "15px", marginBottom: 8 }}>Member Balances</h3>
+        <div className="space-y-3">
           {roommateBreakdown.map((r) => {
             const sc = statusConfig[r.status];
             const remaining = r.amountDue;
