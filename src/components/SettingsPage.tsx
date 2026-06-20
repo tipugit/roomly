@@ -19,6 +19,7 @@ import {
   Trash2,
   Users,
   FileText,
+  Repeat,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { MemberCheckboxGrid } from "@/components/MemberCheckboxGrid";
@@ -26,6 +27,7 @@ import type { ParkingAssignmentTemplate, Settings } from "@/types";
 
 const sidebarSections = [
   { id: "general", label: "General", icon: Globe, color: "#4F46E5", bg: "#EEF2FF" },
+  { id: "recurring", label: "Default Bill", icon: Repeat, color: "#8B5CF6", bg: "#F5F3FF" },
   { id: "message", label: "General Message", icon: MessageSquare, color: "#6366F1", bg: "#EEF2FF" },
   { id: "parking", label: "Parking Management", icon: Car, color: "#0D9488", bg: "#ECFEFF" },
   { id: "notifications", label: "Notifications", icon: Bell, color: "#06B6D4", bg: "#ECFEFF" },
@@ -218,6 +220,14 @@ export function SettingsPage() {
   useEffect(() => {
     setLocalState({
       ...settings,
+      defaultRent: settings.defaultRent ?? 3000,
+      defaultBillExpenses: settings.defaultBillExpenses?.length
+        ? settings.defaultBillExpenses
+        : [
+            { name: "Internet", amount: 80, category: "Internet", shareMode: "all" as const },
+            { name: "Electricity", amount: 120, category: "Electricity", shareMode: "all" as const },
+            { name: "Water", amount: 60, category: "Water", shareMode: "all" as const },
+          ],
       parkingAssignments:
         settings.parkingAssignments.length >= settings.parkingTotalSpots
           ? settings.parkingAssignments
@@ -394,6 +404,128 @@ export function SettingsPage() {
                     }}
                   />
                 </label>
+              </div>
+            </SectionCard>
+          </div>
+        );
+
+      case "recurring":
+        return (
+          <div className="space-y-5">
+            <SectionCard
+              title="Default Monthly Bill"
+              desc="These values auto-fill when you create a new bill. You can still adjust them on each bill."
+            >
+              <div className="space-y-4">
+                <div>
+                  <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: 6 }}>
+                    Default Rent
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--muted-foreground)", fontSize: "14px" }}>$</span>
+                    <input
+                      type="number"
+                      value={localState.defaultRent ?? 0}
+                      onChange={(e) =>
+                        setLocalState((prev) => ({
+                          ...prev,
+                          defaultRent: parseFloat(e.target.value) || 0,
+                        }))
+                      }
+                      className="w-full pl-8 pr-4 py-2.5 rounded-xl outline-none"
+                      style={{ background: "var(--muted)", border: "1.5px solid var(--border)", fontSize: "16px" }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <label style={{ fontSize: "12px", fontWeight: 600 }}>Default Expenses</label>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setLocalState((prev) => ({
+                          ...prev,
+                          defaultBillExpenses: [
+                            ...(prev.defaultBillExpenses ?? []),
+                            { name: "", amount: 0, category: "Other", shareMode: "all" },
+                          ],
+                        }))
+                      }
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold"
+                      style={{ background: "#EEF2FF", color: "#4F46E5" }}
+                    >
+                      <Plus size={12} />
+                      Add line
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {(localState.defaultBillExpenses ?? []).map((exp, idx) => (
+                      <div
+                        key={idx}
+                        className="flex flex-col sm:flex-row gap-2 p-3 rounded-xl"
+                        style={{ background: "var(--muted)", border: "1px solid var(--border)" }}
+                      >
+                        <input
+                          type="text"
+                          placeholder="Name"
+                          value={exp.name}
+                          onChange={(e) => {
+                            const next = [...(localState.defaultBillExpenses ?? [])];
+                            next[idx] = { ...next[idx], name: e.target.value };
+                            setLocalState((prev) => ({ ...prev, defaultBillExpenses: next }));
+                          }}
+                          className="flex-1 px-3 py-2 rounded-lg outline-none min-w-0"
+                          style={{ background: "var(--card)", border: "1px solid var(--border)", fontSize: "16px" }}
+                        />
+                        <select
+                          value={exp.category}
+                          onChange={(e) => {
+                            const next = [...(localState.defaultBillExpenses ?? [])];
+                            next[idx] = { ...next[idx], category: e.target.value };
+                            setLocalState((prev) => ({ ...prev, defaultBillExpenses: next }));
+                          }}
+                          className="sm:w-32 px-3 py-2 rounded-lg outline-none"
+                          style={{ background: "var(--card)", border: "1px solid var(--border)", fontSize: "16px" }}
+                        >
+                          {["Internet", "Electricity", "Water", "Cleaning", "Supplies", "Groceries", "Other"].map((c) => (
+                            <option key={c}>{c}</option>
+                          ))}
+                        </select>
+                        <div className="relative sm:w-28">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--muted-foreground)" }}>$</span>
+                          <input
+                            type="number"
+                            value={exp.amount || ""}
+                            onChange={(e) => {
+                              const next = [...(localState.defaultBillExpenses ?? [])];
+                              next[idx] = { ...next[idx], amount: parseFloat(e.target.value) || 0 };
+                              setLocalState((prev) => ({ ...prev, defaultBillExpenses: next }));
+                            }}
+                            className="w-full pl-6 pr-2 py-2 rounded-lg outline-none"
+                            style={{ background: "var(--card)", border: "1px solid var(--border)", fontSize: "16px" }}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setLocalState((prev) => ({
+                              ...prev,
+                              defaultBillExpenses: (prev.defaultBillExpenses ?? []).filter((_, i) => i !== idx),
+                            }))
+                          }
+                          className="w-9 h-9 flex items-center justify-center rounded-lg self-end sm:self-auto flex-shrink-0"
+                          style={{ background: "#FEF2F2" }}
+                        >
+                          <Trash2 size={14} style={{ color: "#EF4444" }} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <p style={{ color: "var(--muted-foreground)", fontSize: "11px", marginTop: 10, lineHeight: 1.5 }}>
+                    Save settings, then create a new bill — these lines appear automatically. Edit or remove them per bill as needed.
+                  </p>
+                </div>
               </div>
             </SectionCard>
           </div>
@@ -1006,9 +1138,40 @@ export function SettingsPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
+      {/* Mobile: sticky horizontal section tabs */}
+      <div
+        className="lg:hidden sticky z-10 -mx-4 px-4 py-2"
+        style={{ top: 0, background: "var(--background)", borderBottom: "1px solid var(--border)" }}
+      >
+        <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+          {sidebarSections.map((section) => {
+            const isActive = active === section.id;
+            return (
+              <button
+                key={section.id}
+                type="button"
+                onClick={() => setActive(section.id)}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-full flex-shrink-0 transition-all"
+                style={{
+                  background: isActive ? section.bg : "var(--card)",
+                  border: `1.5px solid ${isActive ? section.color : "var(--border)"}`,
+                  color: isActive ? section.color : "var(--muted-foreground)",
+                  fontSize: "12px",
+                  fontWeight: isActive ? 700 : 500,
+                }}
+              >
+                <section.icon size={13} />
+                {section.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="flex flex-col lg:grid lg:grid-cols-4 gap-4 sm:gap-6">
+        {/* Desktop sidebar */}
         <div
-          className="rounded-2xl p-3 h-fit"
+          className="hidden lg:block rounded-2xl p-3 h-fit"
           style={{
             background: "var(--card)",
             border: "1px solid var(--border)",
@@ -1058,7 +1221,7 @@ export function SettingsPage() {
           })}
         </div>
 
-        <div className="lg:col-span-3">{renderContent()}</div>
+        <div className="lg:col-span-3 min-w-0">{renderContent()}</div>
       </div>
     </div>
   );

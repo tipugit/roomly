@@ -91,6 +91,13 @@ export interface Bill {
   completed?: boolean;
 }
 
+export interface DefaultBillExpense {
+  name: string;
+  amount: number;
+  category: string;
+  shareMode?: "all" | "selected";
+}
+
 export interface Settings {
   houseName: string;
   address: string;
@@ -120,6 +127,10 @@ export interface Settings {
   parkingIncludedInRent: boolean;
   parkingAssignments: ParkingAssignmentTemplate[];
   roundUpAmounts: boolean;
+  /** Default monthly rent pre-filled on new bills */
+  defaultRent: number;
+  /** Expense lines auto-added when creating a new bill */
+  defaultBillExpenses: DefaultBillExpense[];
 }
 
 export interface Activity {

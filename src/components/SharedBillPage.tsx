@@ -1,7 +1,6 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import {
   Home,
-  Download,
   Printer,
   CheckCircle2,
   Clock,
@@ -17,7 +16,6 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { useApp } from "@/context/AppContext";
 import { BillAnnouncements } from "@/components/BillAnnouncements";
 import { CollectionSummaryCard } from "@/components/CollectionSummaryCard";
-import { printPage } from "@/lib/print";
 import {
   buildMemberShareBreakdown,
   calcCollectionSummary,
@@ -46,8 +44,7 @@ interface SharedBillPageProps {
 }
 
 export function SharedBillPage({ onBack }: SharedBillPageProps) {
-  const { activeBill, roommates, settings, showToast, sharedPayload } = useApp();
-  const [downloaded, setDownloaded] = useState(false);
+  const { activeBill, roommates, settings, sharedPayload } = useApp();
 
   const bill = sharedPayload?.bill ?? activeBill;
   const houseName = sharedPayload?.houseName ?? settings.houseName;
@@ -131,13 +128,6 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
     roommateRows.length > 0
       ? roommateRows.reduce((s, r) => s + r.share, 0) / roommateRows.length
       : 0;
-
-  const handleDownload = () => {
-    setDownloaded(true);
-    printPage();
-    showToast("Choose Save as PDF in the print dialog", "info");
-    setTimeout(() => setDownloaded(false), 3000);
-  };
 
   if (!bill) {
     return (
@@ -236,18 +226,6 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
           >
             <Printer size={13} />
             Print
-          </button>
-          <button
-            onClick={handleDownload}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-white transition-all active:scale-95"
-            style={{
-              background: downloaded ? "linear-gradient(135deg, #10B981, #059669)" : "linear-gradient(135deg, #4F46E5, #7C3AED)",
-              fontSize: "13px",
-              boxShadow: "0 4px 14px rgba(79,70,229,0.3)",
-            }}
-          >
-            {downloaded ? <CheckCircle2 size={13} /> : <Download size={13} />}
-            {downloaded ? "Downloaded!" : "Download PDF"}
           </button>
         </div>
       </div>

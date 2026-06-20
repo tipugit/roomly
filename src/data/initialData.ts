@@ -89,7 +89,7 @@ const expenses: Expense[] = [
   { id: 5, name: "Supplies", amount: 40, paidBy: 5, category: "Supplies", icon: "🧴", note: "Toilet paper, soap" },
 ];
 
-const demoSettings = {
+const demoSettings: import("@/types").Settings = {
   houseName: "Sunset House",
   address: "42 Maple Street, NY 10001",
   currency: "USD",
@@ -121,6 +121,12 @@ const demoSettings = {
     { id: 2, spotName: "Spot B", roommateId: 3, monthlyFee: 150, active: true, shareSpace: true },
   ],
   roundUpAmounts: false,
+  defaultRent: 3000,
+  defaultBillExpenses: [
+    { name: "Internet", amount: 80, category: "Internet", shareMode: "all" as const },
+    { name: "Electricity", amount: 120, category: "Electricity", shareMode: "all" as const },
+    { name: "Water", amount: 60, category: "Water", shareMode: "all" as const },
+  ],
 };
 
 const parkingSnapshot = buildParkingSnapshotFromSettings(demoSettings);

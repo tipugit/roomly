@@ -10,11 +10,13 @@ import {
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { ExpenseMemberSelector } from "@/components/ExpenseMemberSelector";
-import type { Expense } from "@/types";
+import type { DefaultBillExpense, Expense, Settings } from "@/types";
 import { formatMonthYear, isRoommateEligibleForBill } from "@/lib/memberDates";
+import { MemberCalculationPanel } from "@/components/MemberCalculationPanel";
 import {
   buildParkingSnapshotFromSettings,
   buildMemberShareBreakdown,
+  buildMemberCalculationSteps,
   buildRoommateShares,
   calcCollectionSummary,
   formatAmount,
@@ -81,6 +83,45 @@ function SectionCard({
 
 const monthOptions = buildMonthOptions();
 
+function buildExpensesFromSettings(settings: Settings): FormExpense[] {
+  const templates: DefaultBillExpense[] =
+    settings.defaultBillExpenses?.length > 0
+      ? settings.defaultBillExpenses
+      : [
+          { name: "Internet", amount: 80, category: "Internet", shareMode: "all" },
+          { name: "Electricity", amount: 120, category: "Electricity", shareMode: "all" },
+          { name: "Water", amount: 60, category: "Water", shareMode: "all" },
+        ];
+  return templates.map((t, i) => ({
+    id: i + 1,
+    name: t.name,
+    amount: String(t.amount),
+    paidBy: null,
+    category: t.category,
+    shareMode: t.shareMode ?? "all",
+    sharedBy: [],
+  }));
+}
+
+function ParkingToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="relative w-11 h-6 rounded-full transition-all flex-shrink-0"
+      style={{
+        background: on ? "#4F46E5" : "var(--muted)",
+        border: `2px solid ${on ? "#4F46E5" : "var(--border)"}`,
+      }}
+    >
+      <div
+        className="absolute w-4 h-4 rounded-full bg-white shadow-sm transition-all"
+        style={{ top: 2, left: on ? "calc(100% - 18px)" : 2 }}
+      />
+    </button>
+  );
+}
+
 export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) => void }) {
   const { roommates, settings, createBill, updateBill, showToast, editingBill, setEditingBill } = useApp();
 
@@ -91,12 +132,9 @@ export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) 
   const isExtraBill = month === "Extra Bill";
   const [billTitle, setBillTitle] = useState(defaultMonth);
   const [houseName, setHouseName] = useState(settings.houseName);
-  const [rent, setRent] = useState("3000");
-  const [expenses, setExpenses] = useState<FormExpense[]>([
-    { id: 1, name: "Internet", amount: "80", paidBy: null, category: "Internet", shareMode: "all", sharedBy: [] },
-    { id: 2, name: "Electricity", amount: "120", paidBy: null, category: "Electricity", shareMode: "all", sharedBy: [] },
-    { id: 3, name: "Water", amount: "60", paidBy: null, category: "Water", shareMode: "all", sharedBy: [] },
-  ]);
+  const [rent, setRent] = useState(() => String(settings.defaultRent ?? 3000));
+  const [expenses, setExpenses] = useState<FormExpense[]>(() => buildExpensesFromSettings(settings));
+  const [includeParking, setIncludeParking] = useState(true);
   const [selected, setSelected] = useState<number[]>(() =>
     roommates.filter((r) => r.status === "Active").map((r) => r.id)
   );
@@ -192,12 +230,13 @@ export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) 
     setSelected(editingBill.selectedRoommateIds);
     setAnnouncementTitle(editingBill.announcementTitle ?? "");
     setAnnouncementMessage(editingBill.announcementMessage ?? "");
+    setIncludeParking(!!editingBill.parkingSnapshot?.assignments?.length);
     setEditingBill(null);
   }, [editingBill, setEditingBill]);
 
   const rentNum = parseFloat(rent) || 0;
   const extraTotal = expenses.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
-  const parkingSnapshot = buildParkingSnapshotFromSettings(settings);
+  const parkingSnapshot = includeParking ? buildParkingSnapshotFromSettings(settings) : null;
 
   const parsedExpenses: Expense[] = expenses.map((e) => ({
     id: e.id,
@@ -248,7 +287,17 @@ export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) 
       parkingSnapshot,
       roundUp
     );
-    return { ...r, paid: rs.paid, amountDue, share: rs.share, calc };
+    const calcLines = buildMemberCalculationSteps(
+      rs.roommateId,
+      rentNum,
+      parsedExpenses,
+      selected,
+      parkingSnapshot,
+      roommates,
+      rs.paid,
+      roundUp
+    );
+    return { ...r, paid: rs.paid, amountDue, share: rs.share, calc, calcLines };
   });
 
   const handleSave = async () => {
@@ -718,7 +767,27 @@ export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) 
             </div>
           </SectionCard>
 
-          {parkingSnapshot.assignments.length > 0 && (
+          <SectionCard
+            title="Parking"
+            subtitle="Include parking spot fees from settings in this bill's calculation"
+          >
+            <div
+              className="flex items-center justify-between gap-4 p-4 rounded-xl"
+              style={{ background: includeParking ? "#EEF2FF" : "var(--muted)", border: `1px solid ${includeParking ? "rgba(79,70,229,0.2)" : "var(--border)"}` }}
+            >
+              <div>
+                <div style={{ fontWeight: 600, fontSize: "13px" }}>Calculate parking</div>
+                <p style={{ color: "var(--muted-foreground)", fontSize: "11px", marginTop: 4, lineHeight: 1.4 }}>
+                  {includeParking
+                    ? "Parking assignments from Settings will be split among members"
+                    : "Parking fees are excluded from this bill"}
+                </p>
+              </div>
+              <ParkingToggle on={includeParking} onToggle={() => setIncludeParking((p) => !p)} />
+            </div>
+          </SectionCard>
+
+          {includeParking && parkingSnapshot && parkingSnapshot.assignments.length > 0 && (
             <SectionCard
               title="Parking (from settings)"
               subtitle="Current assignments will be copied into this month's bill"
@@ -971,50 +1040,43 @@ export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) 
             >
               Split Preview
             </h3>
-            <div className="space-y-2.5">
+            <div className="space-y-3">
               {breakdown.map((r) => (
                 <div
                   key={r.id}
-                  className="flex items-center gap-3 p-3 rounded-xl"
-                  style={{ background: "var(--muted)" }}
+                  className="rounded-xl overflow-hidden"
+                  style={{ background: "var(--muted)", border: `1.5px solid ${r.color}40` }}
                 >
-                  <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                    style={{ background: r.color }}
-                  >
-                    {r.initials}
-                  </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 p-3">
                     <div
-                      style={{ color: "var(--foreground)", fontSize: "12px", fontWeight: 600 }}
+                      className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                      style={{ background: r.color }}
                     >
-                      {r.name.split(" ")[0]}
+                      {r.initials}
                     </div>
-                    <div style={{ color: "var(--muted-foreground)", fontSize: "10px", marginTop: 2 }}>
-                      Rent {formatAmount(r.calc.rentShare, roundUp)}
-                      {r.calc.expenseShare > 0 && ` + Exp ${formatAmount(r.calc.expenseShare, roundUp)}`}
-                      {r.calc.parkingShare > 0 && ` + Parking ${formatAmount(r.calc.parkingShare, roundUp)}`}
-                      {r.calc.upfrontPaid > 0 && ` − Prepaid ${formatAmount(r.calc.upfrontPaid, roundUp)}`}
-                    </div>
-                    {r.paid > 0 && (
-                      <div style={{ color: "#10B981", fontSize: "10px" }}>
-                        Collected {formatAmount(r.paid, roundUp)}
+                    <div className="flex-1 min-w-0">
+                      <div style={{ color: "var(--foreground)", fontSize: "13px", fontWeight: 600 }}>
+                        {r.name.split(" ")[0]}
                       </div>
-                    )}
-                  </div>
-                  <div
-                    className="px-2.5 py-1 rounded-lg font-bold text-xs text-right"
-                    style={{
-                      background: r.amountDue > 0 ? "#FEF2F2" : "#ECFDF5",
-                      color: r.amountDue > 0 ? "#EF4444" : "#10B981",
-                    }}
-                  >
-                    <div>{formatAmount(r.amountDue, roundUp)}</div>
-                    <div style={{ fontSize: "9px", fontWeight: 500, opacity: 0.85 }}>
-                      {r.amountDue > 0
-                        ? "Still owed"
-                        : "Settled"}
+                      <div style={{ color: "var(--muted-foreground)", fontSize: "10px", marginTop: 2 }}>
+                        Room {r.room}
+                      </div>
                     </div>
+                    <div
+                      className="px-2.5 py-1 rounded-lg font-bold text-xs text-right flex-shrink-0"
+                      style={{
+                        background: r.amountDue > 0 ? "#FEF2F2" : "#ECFDF5",
+                        color: r.amountDue > 0 ? "#EF4444" : "#10B981",
+                      }}
+                    >
+                      <div>{formatAmount(r.amountDue, roundUp)}</div>
+                      <div style={{ fontSize: "9px", fontWeight: 500, opacity: 0.85 }}>
+                        {r.amountDue > 0 ? "Still owed" : "Settled"}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="px-3 pb-3">
+                    <MemberCalculationPanel lines={r.calcLines} roundUp={roundUp} accentColor={r.color} />
                   </div>
                 </div>
               ))}

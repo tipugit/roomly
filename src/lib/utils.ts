@@ -133,6 +133,111 @@ export function buildMemberShareBreakdown(
   };
 }
 
+export type CalculationLineType = "add" | "subtract" | "info" | "subtotal" | "total" | "balance";
+
+export interface CalculationLine {
+  type: CalculationLineType;
+  label: string;
+  detail?: string;
+  amount: number | null;
+}
+
+export function buildMemberCalculationSteps(
+  roommateId: number,
+  rent: number,
+  expenses: Expense[],
+  selectedIds: number[],
+  parking: ParkingSnapshot | null | undefined,
+  roommates: Pick<Roommate, "id" | "name">[],
+  collectedPaid = 0,
+  roundUp = false
+): CalculationLine[] {
+  const lines: CalculationLine[] = [];
+  const count = selectedIds.length;
+  if (count === 0) return lines;
+
+  const rentInfo = getRentPoolForSharing(rent, parking, selectedIds);
+  const rentShare = rentInfo.rentPool / count;
+
+  if (rentInfo.parkingIncluded && rentInfo.totalParkingFees > 0) {
+    lines.push({
+      type: "info",
+      label: "Rent pool",
+      detail: `$${rent.toLocaleString()} rent minus $${rentInfo.totalParkingFees.toLocaleString()} parking (included in rent)`,
+      amount: null,
+    });
+  }
+
+  lines.push({
+    type: "add",
+    label: "Rent share",
+    detail:
+      rentInfo.parkingIncluded && rentInfo.totalParkingFees > 0
+        ? `$${rentInfo.rentPool.toFixed(2)} ÷ ${count} members`
+        : `$${rent.toLocaleString()} ÷ ${count} members`,
+    amount: roundMoney(rentShare, roundUp),
+  });
+
+  for (const expense of expenses) {
+    const sharers = getExpenseSharers(expense, selectedIds);
+    if (!sharers.includes(roommateId) || sharers.length === 0) continue;
+    const share = expense.amount / sharers.length;
+    const payer = expense.paidBy ? roommates.find((r) => r.id === expense.paidBy) : null;
+    const shareLabel = formatSharedByLabel(expense, roommates, selectedIds);
+    lines.push({
+      type: "add",
+      label: expense.name || expense.category,
+      detail: `$${expense.amount.toLocaleString()} ÷ ${sharers.length} (${shareLabel})${
+        payer ? ` · Paid upfront by ${payer.name.split(" ")[0]}` : " · Unpaid"
+      }`,
+      amount: roundMoney(share, roundUp),
+    });
+  }
+
+  const activeParking = getActiveParkingAssignments(parking, selectedIds);
+  for (const assignment of activeParking) {
+    const sharers = getParkingShareMemberIds(assignment, selectedIds);
+    if (!sharers.includes(roommateId) || sharers.length === 0) continue;
+    const share = assignment.monthlyFee / sharers.length;
+    lines.push({
+      type: "add",
+      label: `Parking — ${assignment.spotName}`,
+      detail: `$${assignment.monthlyFee.toLocaleString()} ÷ ${sharers.length} · ${formatParkingShareLabel(assignment, selectedIds, roommates)}`,
+      amount: roundMoney(share, roundUp),
+    });
+  }
+
+  const breakdown = buildMemberShareBreakdown(roommateId, selectedIds, rent, expenses, parking, roundUp);
+  lines.push({ type: "subtotal", label: "Gross total (before credits)", amount: breakdown.grossTotal });
+
+  for (const expense of expenses.filter((e) => e.paidBy === roommateId)) {
+    lines.push({
+      type: "subtract",
+      label: `Credit — ${expense.name || expense.category}`,
+      detail: "You paid this expense upfront; deducted from your balance",
+      amount: roundMoney(expense.amount, roundUp),
+    });
+  }
+
+  lines.push({ type: "total", label: "Net amount due", amount: breakdown.netDue });
+
+  if (collectedPaid > 0) {
+    lines.push({
+      type: "subtract",
+      label: "Already collected",
+      detail: "Payments recorded toward this bill",
+      amount: roundMoney(collectedPaid, roundUp),
+    });
+    lines.push({
+      type: "balance",
+      label: "Remaining balance",
+      amount: roundMoney(Math.max(0, breakdown.netDue - collectedPaid), roundUp),
+    });
+  }
+
+  return lines;
+}
+
 export function getInitials(name: string) {
   return name
     .split(" ")
