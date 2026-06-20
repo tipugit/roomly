@@ -210,12 +210,14 @@ export function buildMemberCalculationSteps(
   const breakdown = buildMemberShareBreakdown(roommateId, selectedIds, rent, expenses, parking, roundUp);
   lines.push({ type: "subtotal", label: "Gross total (before credits)", amount: breakdown.grossTotal });
 
+  const memberName = roommates.find((r) => r.id === roommateId)?.name.split(" ")[0] ?? "Member";
+
   for (const expense of expenses.filter((e) => e.paidBy === roommateId)) {
     const expenseLabel = expense.name || expense.category;
     lines.push({
       type: "subtract",
       label: `Prepaid (${expenseLabel})`,
-      detail: `You paid $${expense.amount.toLocaleString()} upfront for ${expenseLabel}`,
+      detail: `(${memberName}) paid $${expense.amount.toLocaleString()} upfront for ${expenseLabel}`,
       amount: roundMoney(expense.amount, roundUp),
     });
   }

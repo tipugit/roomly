@@ -9,9 +9,12 @@ import {
   FileText,
   Plus,
   ArrowLeft,
+  ChevronRight,
+  Users,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { actionButtonStyle } from "@/lib/themeTokens";
 import { calcCollectionSummary, copyBillLink, getShareLink } from "@/lib/utils";
 
 interface BillDetailsPageProps {
@@ -91,11 +94,11 @@ export function BillDetailsPage({ onBack }: BillDetailsPageProps) {
             </button>
           )}
           <div>
-            <h1 style={{ fontWeight: 800, fontSize: "clamp(20px, 5vw, 26px)", letterSpacing: "-0.5px" }}>
+            <h1 style={{ fontWeight: 800, fontSize: "clamp(20px, 5vw, 26px)", letterSpacing: "-0.5px", color: "var(--foreground)" }}>
               All Bills
             </h1>
             <p style={{ color: "var(--muted-foreground)", fontSize: "12px", marginTop: 2 }}>
-              {bills.length} bill{bills.length !== 1 ? "s" : ""} · Tap a card to view full details
+              {bills.length} bill{bills.length !== 1 ? "s" : ""} · Tap a card to view details
             </p>
           </div>
         </div>
@@ -109,13 +112,24 @@ export function BillDetailsPage({ onBack }: BillDetailsPageProps) {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {bills.map((bill) => {
           const summary = calcCollectionSummary(bill);
           const complete = isBillComplete(bill);
           const paidShares = bill.roommateShares.filter((s) => s.status === "Paid").length;
           const totalShares = bill.roommateShares.length;
+          const progressPct = totalShares > 0 ? Math.round((paidShares / totalShares) * 100) : 0;
           const displayTitle = bill.title || bill.month;
+          const copied = linkCopied === bill.id;
+
+          const cardActions = [
+            { id: "link", label: copied ? "Copied" : "Link", icon: Link2, onClick: () => void copyLink(bill.id), style: copied ? actionButtonStyle.success : actionButtonStyle.muted },
+            { id: "edit", label: "Edit", icon: Edit2, onClick: () => handleEdit(bill), style: actionButtonStyle.warning },
+            { id: "copy", label: "Copy", icon: Copy, onClick: () => void duplicateBill(bill.id), style: actionButtonStyle.muted },
+            { id: "paid", label: "Paid", icon: Check, onClick: () => void markBillComplete(bill.id), style: actionButtonStyle.success },
+            { id: "view", label: "Public", icon: ExternalLink, onClick: () => void openPublicLink(bill.id), style: actionButtonStyle.primary },
+            { id: "delete", label: "Delete", icon: Trash2, onClick: () => setDeleteTarget({ id: bill.id, title: displayTitle }), style: actionButtonStyle.danger },
+          ];
 
           return (
             <div
@@ -124,26 +138,27 @@ export function BillDetailsPage({ onBack }: BillDetailsPageProps) {
               style={{
                 background: "var(--card)",
                 border: "1px solid var(--border)",
-                boxShadow: "0 4px 20px rgba(79,70,229,0.08)",
+                boxShadow: "0 4px 24px var(--surface-tint)",
               }}
             >
+              <div className="h-1" style={{ background: complete ? "var(--status-success-text)" : "var(--primary)" }} />
+
               <button
                 type="button"
                 onClick={() => openBillView(bill.id)}
-                className="w-full p-5 text-left"
-                style={{ background: "var(--muted)" }}
+                className="w-full p-4 pb-3 text-left transition-opacity hover:opacity-95"
               >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="min-w-0">
-                    <h3 className="truncate" style={{ fontWeight: 700, fontSize: "16px" }}>
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate" style={{ fontWeight: 700, fontSize: "16px", color: "var(--foreground)" }}>
                       {displayTitle}
                     </h3>
-                    <p style={{ color: "var(--muted-foreground)", fontSize: "11px", marginTop: 2 }}>
+                    <p style={{ color: "var(--muted-foreground)", fontSize: "11px", marginTop: 3 }}>
                       {bill.month} · {bill.createdAt}
                     </p>
                   </div>
                   <span
-                    className="px-2 py-0.5 rounded-full text-xs font-semibold flex-shrink-0"
+                    className="px-2.5 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0 uppercase tracking-wide"
                     style={{
                       background: complete ? "var(--status-success-bg)" : "var(--status-info-bg)",
                       color: complete ? "var(--status-success-text)" : "var(--status-info-text)",
@@ -153,59 +168,81 @@ export function BillDetailsPage({ onBack }: BillDetailsPageProps) {
                   </span>
                 </div>
 
-                <div className="p-3 rounded-xl mb-2" style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
-                  <p style={{ fontSize: "10px", color: "var(--muted-foreground)", fontWeight: 600 }}>TOTAL</p>
-                  <p style={{ fontWeight: 900, fontSize: "24px", color: "#4F46E5", letterSpacing: "-0.5px" }}>
-                    ${summary.totalToCollect.toLocaleString()}
-                  </p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <div className="flex-1 h-1.5 rounded-full" style={{ background: "rgba(79,70,229,0.1)" }}>
-                      <div
-                        className="h-full rounded-full"
-                        style={{
-                          width: `${totalShares > 0 ? (paidShares / totalShares) * 100 : 0}%`,
-                          background: "linear-gradient(90deg, #4F46E5, #10B981)",
-                        }}
-                      />
+                <div
+                  className="rounded-xl p-3 mb-3"
+                  style={{ background: "var(--muted)", border: "1px solid var(--border)" }}
+                >
+                  <div className="flex items-end justify-between gap-2">
+                    <div>
+                      <p style={{ fontSize: "10px", color: "var(--muted-foreground)", fontWeight: 600, letterSpacing: "0.4px" }}>
+                        TOTAL BILL
+                      </p>
+                      <p style={{ fontWeight: 900, fontSize: "26px", color: "var(--primary)", letterSpacing: "-0.5px", lineHeight: 1.1 }}>
+                        ${summary.totalToCollect.toLocaleString()}
+                      </p>
                     </div>
-                    <span style={{ fontSize: "10px", color: "var(--muted-foreground)", fontWeight: 600 }}>
-                      {paidShares}/{totalShares}
-                    </span>
+                    <div className="text-right">
+                      <p style={{ fontSize: "10px", color: "var(--muted-foreground)", fontWeight: 600 }}>Collected</p>
+                      <p style={{ fontWeight: 700, fontSize: "14px", color: "var(--status-success-text)" }}>
+                        ${summary.totalPaid.toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 pt-3 border-t" style={{ borderColor: "var(--border)" }}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span style={{ fontSize: "10px", color: "var(--muted-foreground)", fontWeight: 600 }}>
+                        Payment progress
+                      </span>
+                      <span style={{ fontSize: "10px", fontWeight: 700, color: "var(--primary)" }}>{progressPct}%</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: "var(--card)" }}>
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{
+                            width: `${progressPct}%`,
+                            background: complete
+                              ? "var(--status-success-text)"
+                              : "linear-gradient(90deg, var(--primary), var(--chart-3))",
+                          }}
+                        />
+                      </div>
+                      <span className="flex items-center gap-0.5 flex-shrink-0" style={{ fontSize: "10px", color: "var(--muted-foreground)", fontWeight: 600 }}>
+                        <Users size={10} />
+                        {paidShares}/{totalShares}
+                      </span>
+                    </div>
                   </div>
                 </div>
-                <p style={{ fontSize: "10px", color: "#4F46E5", fontWeight: 600, textAlign: "center" }}>
-                  Tap to open bill →
-                </p>
+
+                <div className="flex items-center justify-center gap-1" style={{ color: "var(--primary)", fontSize: "11px", fontWeight: 600 }}>
+                  View bill details
+                  <ChevronRight size={13} />
+                </div>
               </button>
 
               <div
-                className="grid grid-cols-6 gap-0.5 px-2 pb-3"
-                style={{ borderTop: "1px solid var(--border)" }}
+                className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 px-3 pb-3 pt-1 border-t"
+                style={{ borderColor: "var(--border)", background: "var(--muted)" }}
               >
-                {[
-                  { icon: Link2, label: "Link", action: () => copyLink(bill.id), active: linkCopied === bill.id },
-                  { icon: Edit2, label: "Edit", action: () => handleEdit(bill) },
-                  { icon: Copy, label: "Copy", action: () => void duplicateBill(bill.id) },
-                  { icon: Check, label: "Paid", action: () => void markBillComplete(bill.id) },
-                  { icon: ExternalLink, label: "View", action: () => openPublicLink(bill.id) },
-                  { icon: Trash2, label: "Delete", action: () => setDeleteTarget({ id: bill.id, title: displayTitle }) },
-                ].map(({ icon: Icon, label, action, active }) => (
+                {cardActions.map(({ id, label, icon: Icon, onClick, style }) => (
                   <button
-                    key={label}
+                    key={id}
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); action(); }}
-                    className="flex flex-col items-center gap-1 py-2 rounded-lg transition-all active:scale-95"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onClick();
+                    }}
+                    className="flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-xl transition-all active:scale-95 min-w-0"
+                    style={{
+                      background: style.bg,
+                      color: style.text,
+                      border: `1px solid ${style.border}`,
+                    }}
                   >
-                    <div
-                      className="w-8 h-8 flex items-center justify-center rounded-lg"
-                      style={{
-                        background: active ? "#ECFDF5" : "var(--muted)",
-                        color: active ? "#059669" : "var(--muted-foreground)",
-                      }}
-                    >
-                      <Icon size={13} />
-                    </div>
-                    <span style={{ fontSize: "8px", fontWeight: 600, color: "var(--muted-foreground)" }}>{label}</span>
+                    <Icon size={14} strokeWidth={2.25} />
+                    <span style={{ fontSize: "9px", fontWeight: 700, letterSpacing: "0.2px" }}>{label}</span>
                   </button>
                 ))}
               </div>

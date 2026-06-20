@@ -182,6 +182,15 @@ export function BillViewPage({ billId }: BillViewPageProps) {
     navigate("expenses");
   };
 
+  const billActions = [
+    { id: "link", label: linkCopied ? "Copied" : "Link", icon: Link2, onClick: () => void handleCopyLink(), style: actionButtonStyle.success },
+    { id: "public", label: "Public", icon: ExternalLink, onClick: () => void handleOpenPublic(), style: actionButtonStyle.primary },
+    { id: "edit", label: "Edit", icon: Edit2, onClick: handleEdit, style: actionButtonStyle.warning },
+    { id: "duplicate", label: "Copy", icon: Copy, onClick: () => void duplicateBill(bill.id), style: actionButtonStyle.muted },
+    { id: "paid", label: "Paid", icon: Check, onClick: () => void markBillComplete(bill.id), style: actionButtonStyle.success },
+    { id: "delete", label: "Delete", icon: Trash2, onClick: () => setDeleteOpen(true), style: actionButtonStyle.danger },
+  ];
+
   return (
     <div className="max-w-[900px] mx-auto space-y-4 pb-4">
       {/* Compact header panel */}
@@ -206,32 +215,6 @@ export function BillViewPage({ billId }: BillViewPageProps) {
               {bill.month} · {houseLabel}
             </p>
           </div>
-          <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
-            {[
-              { id: "link", label: linkCopied ? "Copied!" : "Link", icon: Link2, onClick: () => void handleCopyLink(), style: actionButtonStyle.success, title: "Copy share link" },
-              { id: "public", label: "Public", icon: ExternalLink, onClick: () => void handleOpenPublic(), style: actionButtonStyle.primary, title: "Open public page" },
-              { id: "edit", label: "Edit", icon: Edit2, onClick: handleEdit, style: actionButtonStyle.warning, title: "Edit bill" },
-              { id: "duplicate", label: "Duplicate", icon: Copy, onClick: () => void duplicateBill(bill.id), style: actionButtonStyle.muted, title: "Duplicate bill" },
-              { id: "paid", label: "Mark Paid", icon: Check, onClick: () => void markBillComplete(bill.id), style: actionButtonStyle.success, title: "Mark all paid" },
-              { id: "delete", label: "Delete", icon: Trash2, onClick: () => setDeleteOpen(true), style: actionButtonStyle.danger, title: "Delete bill" },
-            ].map((action) => (
-              <button
-                key={action.id}
-                type="button"
-                title={action.title}
-                onClick={action.onClick}
-                className="flex items-center gap-1 px-2 py-1.5 rounded-lg font-semibold text-[10px] transition-all active:scale-95"
-                style={{
-                  background: action.style.bg,
-                  color: action.style.text,
-                  border: `1px solid ${action.style.border}`,
-                }}
-              >
-                <action.icon size={12} />
-                {action.label}
-              </button>
-            ))}
-          </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-px" style={{ background: "var(--border)" }}>
@@ -248,24 +231,26 @@ export function BillViewPage({ billId }: BillViewPageProps) {
           ))}
         </div>
 
-        <div className="sm:hidden flex flex-wrap gap-1 p-2 border-t" style={{ borderColor: "var(--border)" }}>
-          {[
-            { id: "link", icon: Link2, onClick: () => void handleCopyLink(), style: actionButtonStyle.success, title: "Copy link" },
-            { id: "public", icon: ExternalLink, onClick: () => void handleOpenPublic(), style: actionButtonStyle.primary, title: "Public page" },
-            { id: "edit", icon: Edit2, onClick: handleEdit, style: actionButtonStyle.warning, title: "Edit" },
-            { id: "duplicate", icon: Copy, onClick: () => void duplicateBill(bill.id), style: actionButtonStyle.muted, title: "Duplicate" },
-            { id: "paid", icon: Check, onClick: () => void markBillComplete(bill.id), style: actionButtonStyle.success, title: "Mark paid" },
-            { id: "delete", icon: Trash2, onClick: () => setDeleteOpen(true), style: actionButtonStyle.danger, title: "Delete" },
-          ].map((action) => (
+        <div
+          className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 p-2.5 border-t"
+          style={{ borderColor: "var(--border)", background: "var(--muted)" }}
+        >
+          {billActions.map((action) => (
             <button
               key={action.id}
               type="button"
-              title={action.title}
               onClick={action.onClick}
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ background: action.style.bg, color: action.style.text, border: `1px solid ${action.style.border}` }}
+              className="flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-xl transition-all active:scale-95 min-w-0"
+              style={{
+                background: action.style.bg,
+                color: action.style.text,
+                border: `1px solid ${action.style.border}`,
+              }}
             >
-              <action.icon size={14} />
+              <action.icon size={15} strokeWidth={2.25} />
+              <span style={{ fontSize: "9px", fontWeight: 700, letterSpacing: "0.2px", lineHeight: 1 }}>
+                {action.label}
+              </span>
             </button>
           ))}
         </div>
