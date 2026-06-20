@@ -226,8 +226,10 @@ function require_auth(): array
 function require_super_admin(): array
 {
     $auth = require_auth();
-    if (!$auth['is_super_admin']) {
+    $db = app_db();
+    $realId = real_user_id();
+    if (!is_super_admin($db, $realId)) {
         respond_error('Super admin access required.', 403);
     }
-    return $auth;
+    return array_merge($auth, ['real_user_id' => $realId]);
 }

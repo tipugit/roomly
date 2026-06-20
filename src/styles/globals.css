@@ -27,6 +27,33 @@
   color: var(--muted-foreground) !important;
 }
 
+.admin-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, #4F46E5, #7C3AED);
+  border: none;
+  cursor: pointer;
+}
+.admin-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--foreground);
+  background: var(--muted);
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+
 @media print {
   .no-print { display: none !important; }
   body { background: white !important; }

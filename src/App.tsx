@@ -14,6 +14,7 @@ import { SharedBillPage } from "@/components/SharedBillPage";
 import { AnalyticsPage } from "@/components/AnalyticsPage";
 import { SettingsPage } from "@/components/SettingsPage";
 import { AdminPage } from "@/components/AdminPage";
+import { ImpersonationBanner } from "@/components/admin/ImpersonationBanner";
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 import { useHashRoute } from "@/hooks/useHashRoute";
@@ -35,6 +36,15 @@ function AppContent() {
       setPage("dashboard");
     }
   }, [page, isSuperAdmin, setPage]);
+
+  if (page === "admin" && isSuperAdmin) {
+    return (
+      <>
+        <AdminPage />
+        <ToastStack />
+      </>
+    );
+  }
 
   if (page === "shared-bill") {
     return (
@@ -81,7 +91,6 @@ function AppContent() {
         return <BillDetailsPage />;
       case "analytics": return <AnalyticsPage />;
       case "settings": return <SettingsPage />;
-      case "admin": return <AdminPage />;
       default: return <DashboardPage />;
     }
   };
@@ -90,6 +99,7 @@ function AppContent() {
 
   return (
     <>
+      <ImpersonationBanner />
       <Layout activePage={sidebarActive}>
         <div key={page}>{renderPage()}</div>
       </Layout>

@@ -72,19 +72,20 @@ export function parseHashRoute(): {
   shareData: string | null;
   shareToken: string | null;
   billId: string | null;
+  adminSection: string;
 } {
   const hash = window.location.hash.replace(/^#/, "");
   if (!hash || hash === "/") {
-    return { page: "landing", shareData: null, shareToken: null, billId: null };
+    return { page: "landing", shareData: null, shareToken: null, billId: null, adminSection: "dashboard" };
   }
 
   if (hash.startsWith("/s/") || hash.startsWith("/share/")) {
     const prefix = hash.startsWith("/s/") ? "/s/" : "/share/";
     const data = hash.slice(prefix.length);
     if (/^[a-zA-Z0-9]{4,32}$/.test(data) && !data.includes(".") && data.length < 40) {
-      return { page: "shared-bill", shareData: null, shareToken: data, billId: null };
+      return { page: "shared-bill", shareData: null, shareToken: data, billId: null, adminSection: "dashboard" };
     }
-    return { page: "shared-bill", shareData: data, shareToken: null, billId: null };
+    return { page: "shared-bill", shareData: data, shareToken: null, billId: null, adminSection: "dashboard" };
   }
 
   const segments = hash.replace(/^\//, "").split("/").filter(Boolean);
@@ -96,10 +97,15 @@ export function parseHashRoute(): {
       shareData: null,
       shareToken: null,
       billId: decodeURIComponent(segments[1]),
+      adminSection: "dashboard",
     };
   }
 
-  return { page, shareData: null, shareToken: null, billId: null };
+  if (page === "admin") {
+    return { page: "admin", shareData: null, shareToken: null, billId: null, adminSection: segments[1] ?? "dashboard" };
+  }
+
+  return { page, shareData: null, shareToken: null, billId: null, adminSection: "dashboard" };
 }
 
 export function buildShareUrlFromToken(token: string): string {
@@ -109,8 +115,21 @@ export function buildShareUrlFromToken(token: string): string {
   return `${base}#/s/${token}`;
 }
 
+export function setAdminRoute(section: string) {
+  const next = `#/admin/${section}`;
+  if (window.location.hash !== next) {
+    const url = `${window.location.pathname}${window.location.search}${next}`;
+    window.history.replaceState(null, "", url);
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+  }
+}
+
 export function setHashRoute(page: string, billId?: string | null) {
   if (page === "shared-bill") return;
+  if (page === "admin") {
+    setAdminRoute("dashboard");
+    return;
+  }
   const next =
     page === "bill-details" && billId
       ? `#/bill-details/${encodeURIComponent(billId)}`

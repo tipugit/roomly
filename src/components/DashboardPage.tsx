@@ -35,6 +35,8 @@ import {
   Legend,
 } from "recharts";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
+import { PlatformAnnouncementsBanner } from "@/components/admin/ImpersonationBanner";
 import { calcCollectionSummary, formatCurrency, getCategoryColor } from "@/lib/utils";
 import { chartAxisColor, chartGridColor, chartSeries, payStatusStyle } from "@/lib/themeTokens";
 import type { Bill } from "@/types";
@@ -166,6 +168,7 @@ const renderPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }:
 
 export function DashboardPage() {
   const { roommates, activeBill, activities, bills, navigate, settings, darkMode } = useApp();
+  const { announcements } = useAuth();
 
   const monthlyTrend = useMemo(() => {
     if (bills.length === 0) return [];
@@ -300,6 +303,7 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-5 sm:space-y-7 max-w-[1400px] mx-auto">
+      <PlatformAnnouncementsBanner announcements={announcements} />
       {/* Hero */}
       <div
         className="relative rounded-2xl sm:rounded-3xl p-5 sm:p-8 overflow-hidden"

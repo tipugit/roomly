@@ -16,6 +16,10 @@ try {
 // --- AUTH ---
 if ($route === 'auth/register' && $method === 'POST') {
     $body = json_input();
+    $global = platform_global_settings($db);
+    if (isset($global['registrationEnabled']) && !$global['registrationEnabled']) {
+        respond_error('Registration is currently disabled.', 403);
+    }
     $name = trim($body['name'] ?? '');
     $email = strtolower(trim($body['email'] ?? ''));
     $password = $body['password'] ?? '';
@@ -47,6 +51,9 @@ if ($route === 'auth/register' && $method === 'POST') {
         respond_error('Registration failed.', 500);
     }
 
+    create_platform_notification($db, 'user', 'New user registered', $name, ['userId' => $userId]);
+    log_platform_activity($db, 'user.created', "User {$name} registered", $userId, $userId);
+
     $_SESSION['user_id'] = $userId;
     $_SESSION['house_id'] = $houseId;
 
@@ -61,6 +68,7 @@ if ($route === 'auth/login' && $method === 'POST') {
     $stmt = $db->prepare(
         'SELECT id, name, email, password_hash' .
         (schema_has_user_role($db) ? ', role' : '') .
+        (schema_column_exists($db, 'users', 'status') ? ', status' : '') .
         ' FROM users WHERE email = ? LIMIT 1'
     );
     $stmt->execute([$email]);
@@ -69,12 +77,18 @@ if ($route === 'auth/login' && $method === 'POST') {
     if (!$user || !password_verify($password, $user['password_hash'])) {
         respond_error('Invalid email or password.', 401);
     }
+    if (isset($user['status']) && $user['status'] !== 'active') {
+        respond_error('Account is ' . $user['status'] . '. Contact support.', 403);
+    }
 
     $userId = (int) $user['id'];
     $preferredHouse = isset($body['houseId']) ? (int) $body['houseId'] : null;
     $houseId = resolve_user_house($db, $userId, $preferredHouse);
     $_SESSION['user_id'] = $userId;
     $_SESSION['house_id'] = $houseId;
+    unset($_SESSION['impersonator_id']);
+
+    record_login_history($db, $userId);
 
     respond(auth_session_response($db, $userId, $houseId));
 }
@@ -104,7 +118,10 @@ if ($route === 'auth/me' && $method === 'GET') {
     $userId = (int) $user['id'];
     $houseId = resolve_user_house($db, $userId, (int) ($_SESSION['house_id'] ?? 0) ?: null);
     $_SESSION['house_id'] = $houseId;
-    respond(auth_session_response($db, $userId, $houseId));
+    $payload = auth_session_response($db, $userId, $houseId);
+    $payload['impersonating'] = is_impersonating();
+    $payload['impersonatorId'] = is_impersonating() ? (int) $_SESSION['impersonator_id'] : null;
+    respond($payload);
 }
 
 // --- SYNC ---

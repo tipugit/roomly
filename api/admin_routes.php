@@ -51,60 +51,29 @@ if ($route === 'houses/switch' && $method === 'POST') {
     respond(auth_session_response($db, $auth['user_id'], $houseId));
 }
 
-// --- SUPER ADMIN ---
-if ($route === 'admin/stats' && $method === 'GET') {
-    require_super_admin();
-
-    $users = (int) $db->query('SELECT COUNT(*) AS c FROM users')->fetch()['c'];
-    $houses = (int) $db->query('SELECT COUNT(*) AS c FROM houses')->fetch()['c'];
-    $bills = (int) $db->query('SELECT COUNT(*) AS c FROM bills')->fetch()['c'];
-    $roommates = (int) $db->query('SELECT COUNT(*) AS c FROM roommates')->fetch()['c'];
-
-    $recentStmt = $db->query(
-        'SELECT id, name, email, created_at' .
-        (schema_has_user_role($db) ? ', role' : '') .
-        ' FROM users ORDER BY created_at DESC LIMIT 8'
-    );
-    $recentUsers = array_map(function ($row) use ($db) {
-        $payload = auth_user_payload($db, $row);
-        $payload['createdAt'] = $row['created_at'];
-        return $payload;
-    }, $recentStmt->fetchAll());
-
-    respond([
-        'ok' => true,
-        'stats' => [
-            'users' => $users,
-            'houses' => $houses,
-            'bills' => $bills,
-            'roommates' => $roommates,
-        ],
-        'recentUsers' => $recentUsers,
-    ]);
-}
+// --- SUPER ADMIN (legacy routes + extended) ---
+require __DIR__ . '/admin_extended_routes.php';
 
 if ($route === 'admin/users' && $method === 'GET') {
     require_super_admin();
 
-    $sql = 'SELECT u.id, u.name, u.email, u.created_at';
-    if (schema_has_user_role($db)) {
-        $sql .= ', u.role';
+    $status = trim($_GET['status'] ?? '');
+    $q = trim($_GET['q'] ?? '');
+    $sql = admin_user_select_sql($db) . ' WHERE 1=1';
+    $params = [];
+    if ($status !== '' && schema_column_exists($db, 'users', 'status')) {
+        $sql .= ' AND u.status = ?';
+        $params[] = $status;
     }
-    $sql .= ', (SELECT COUNT(*) FROM house_memberships hm WHERE hm.user_id = u.id) AS house_count';
-    if (!schema_has_memberships($db)) {
-        $sql = 'SELECT u.id, u.name, u.email, u.created_at' .
-            (schema_has_user_role($db) ? ', u.role' : '') .
-            ', (SELECT COUNT(*) FROM houses h WHERE h.user_id = u.id) AS house_count';
+    if ($q !== '') {
+        $sql .= ' AND (u.name LIKE ? OR u.email LIKE ?)';
+        $params[] = "%{$q}%";
+        $params[] = "%{$q}%";
     }
-    $sql .= ' FROM users u ORDER BY u.created_at DESC';
-
-    $rows = $db->query($sql)->fetchAll();
-    $users = array_map(function ($row) use ($db) {
-        $payload = auth_user_payload($db, $row);
-        $payload['createdAt'] = $row['created_at'];
-        $payload['houseCount'] = (int) $row['house_count'];
-        return $payload;
-    }, $rows);
+    $sql .= ' ORDER BY u.created_at DESC';
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    $users = array_map(fn($row) => map_admin_user_row($db, $row), $stmt->fetchAll());
 
     respond(['ok' => true, 'users' => $users]);
 }
@@ -235,9 +204,11 @@ if ($route === 'admin/houses' && $method === 'GET') {
     $nameSelect = schema_has_house_name($db)
         ? 'h.name'
         : "COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(h.settings_json, '$.houseName')), ''), 'My House') AS name";
+    $statusCol = schema_column_exists($db, 'houses', 'status') ? ', h.status' : ", 'active' AS status";
+    $lastAct = schema_column_exists($db, 'houses', 'last_activity_at') ? ', h.last_activity_at' : ', NULL AS last_activity_at';
 
     $stmt = $db->query(
-        "SELECT h.id, {$nameSelect}, h.created_at, h.user_id,
+        "SELECT h.id, {$nameSelect}, h.created_at, h.user_id{$statusCol}{$lastAct},
           u.name AS owner_name, u.email AS owner_email,
           (SELECT COUNT(*) FROM roommates r WHERE r.house_id = h.id) AS roommate_count,
           (SELECT COUNT(*) FROM bills b WHERE b.house_id = h.id) AS bill_count
@@ -249,12 +220,14 @@ if ($route === 'admin/houses' && $method === 'GET') {
     $houses = array_map(fn($row) => [
         'id' => (int) $row['id'],
         'name' => $row['name'] ?? 'House',
+        'status' => $row['status'] ?? 'active',
         'ownerId' => (int) $row['user_id'],
         'ownerName' => $row['owner_name'] ?? '',
         'ownerEmail' => $row['owner_email'] ?? '',
         'roommateCount' => (int) $row['roommate_count'],
         'billCount' => (int) $row['bill_count'],
         'createdAt' => $row['created_at'],
+        'lastActivityAt' => $row['last_activity_at'] ?? null,
     ], $stmt->fetchAll());
 
     respond(['ok' => true, 'houses' => $houses]);

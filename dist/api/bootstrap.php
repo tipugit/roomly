@@ -292,3 +292,4 @@ function pay_status(float $paid, float $share): string
 }
 
 require __DIR__ . '/multi_home.php';
+require __DIR__ . '/admin_platform.php';

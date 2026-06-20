@@ -8,6 +8,7 @@ import {
 } from "react";
 import { api, type AuthUser } from "@/lib/api";
 import type { AppState, HouseSummary } from "@/types";
+import type { PlatformAnnouncement } from "@/types/admin";
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -16,6 +17,8 @@ interface AuthContextValue {
   houses: HouseSummary[];
   activeHouseId: number | null;
   isSuperAdmin: boolean;
+  impersonating: boolean;
+  announcements: PlatformAnnouncement[];
   setAppState: (state: AppState) => void;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
@@ -23,21 +26,31 @@ interface AuthContextValue {
   refreshState: () => Promise<void>;
   switchHouse: (houseId: number) => Promise<void>;
   createHouse: (name: string) => Promise<void>;
+  stopImpersonation: () => Promise<void>;
+  refreshPlatformConfig: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 function applyAuthPayload(
-  res: { user: AuthUser; state: AppState; houses?: HouseSummary[]; activeHouseId?: number },
+  res: {
+    user: AuthUser;
+    state: AppState;
+    houses?: HouseSummary[];
+    activeHouseId?: number;
+    impersonating?: boolean;
+  },
   setUser: (u: AuthUser) => void,
   setAppState: (s: AppState) => void,
   setHouses: (h: HouseSummary[]) => void,
   setActiveHouseId: (id: number | null) => void,
+  setImpersonating: (v: boolean) => void,
 ) {
   setUser(res.user);
   setAppState(res.state);
   if (res.houses) setHouses(res.houses);
   if (res.activeHouseId) setActiveHouseId(res.activeHouseId);
+  setImpersonating(!!res.impersonating);
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -45,7 +58,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [appState, setAppState] = useState<AppState | null>(null);
   const [houses, setHouses] = useState<HouseSummary[]>([]);
   const [activeHouseId, setActiveHouseId] = useState<number | null>(null);
+  const [impersonating, setImpersonating] = useState(false);
+  const [announcements, setAnnouncements] = useState<PlatformAnnouncement[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const refreshPlatformConfig = useCallback(async () => {
+    try {
+      const res = await api.platformConfig();
+      setAnnouncements(res.announcements ?? []);
+      setImpersonating(res.impersonating);
+    } catch {
+      /* optional */
+    }
+  }, []);
 
   const refreshState = useCallback(async () => {
     const res = await api.sync();
@@ -61,24 +86,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setAppState(res.state);
           setHouses(res.houses ?? []);
           setActiveHouseId(res.activeHouseId ?? null);
+          setImpersonating(!!res.impersonating);
+          await refreshPlatformConfig();
         }
       } catch {
-        /* not logged in or API unavailable */
+        /* not logged in */
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [refreshPlatformConfig]);
 
   const login = useCallback(async (email: string, password: string) => {
     const res = await api.login(email, password);
-    applyAuthPayload(res, setUser, setAppState, setHouses, setActiveHouseId);
-  }, []);
+    applyAuthPayload(res, setUser, setAppState, setHouses, setActiveHouseId, setImpersonating);
+    await refreshPlatformConfig();
+  }, [refreshPlatformConfig]);
 
   const register = useCallback(async (name: string, email: string, password: string) => {
     const res = await api.register(name, email, password);
-    applyAuthPayload(res, setUser, setAppState, setHouses, setActiveHouseId);
-  }, []);
+    applyAuthPayload(res, setUser, setAppState, setHouses, setActiveHouseId, setImpersonating);
+    await refreshPlatformConfig();
+  }, [refreshPlatformConfig]);
 
   const logout = useCallback(async () => {
     await api.logout();
@@ -86,19 +115,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAppState(null);
     setHouses([]);
     setActiveHouseId(null);
+    setImpersonating(false);
+    setAnnouncements([]);
   }, []);
 
   const switchHouse = useCallback(async (houseId: number) => {
     const res = await api.switchHouse(houseId);
-    applyAuthPayload(res, setUser, setAppState, setHouses, setActiveHouseId);
+    applyAuthPayload(res, setUser, setAppState, setHouses, setActiveHouseId, setImpersonating);
   }, []);
 
   const createHouse = useCallback(async (name: string) => {
     const res = await api.createHouse(name);
-    applyAuthPayload(res, setUser, setAppState, setHouses, setActiveHouseId);
+    applyAuthPayload(res, setUser, setAppState, setHouses, setActiveHouseId, setImpersonating);
   }, []);
 
-  const isSuperAdmin = user?.role === "super_admin";
+  const stopImpersonation = useCallback(async () => {
+    const res = await api.adminStopImpersonate();
+    applyAuthPayload(res, setUser, setAppState, setHouses, setActiveHouseId, setImpersonating);
+  }, []);
+
+  const isSuperAdmin = impersonating ? false : user?.role === "super_admin";
 
   return (
     <AuthContext.Provider
@@ -109,6 +145,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         houses,
         activeHouseId,
         isSuperAdmin,
+        impersonating,
+        announcements,
         setAppState,
         login,
         register,
@@ -116,6 +154,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         refreshState,
         switchHouse,
         createHouse,
+        stopImpersonation,
+        refreshPlatformConfig,
       }}
     >
       {children}
