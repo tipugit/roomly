@@ -15,6 +15,18 @@
   }
 }
 
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]),
+.dark select,
+.dark textarea {
+  background-color: var(--input-background);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+
+.dark .recharts-default-legend .recharts-legend-item-text {
+  color: var(--muted-foreground) !important;
+}
+
 @media print {
   .no-print { display: none !important; }
   body { background: white !important; }

@@ -112,6 +112,7 @@ interface AppContextValue {
   pendingBillsCount: number;
   billsCount: number;
   billViewRevision: number;
+  dataRevision: number;
   refreshAppState: () => Promise<void>;
   searchOpen: boolean;
   setSearchOpen: (open: boolean) => void;
@@ -155,6 +156,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<Bill | null>(null);
   const [billViewRevision, setBillViewRevision] = useState(0);
+  const [dataRevision, setDataRevision] = useState(0);
 
   const applyState = useCallback(
     (next: typeof state) => {
@@ -166,6 +168,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const normalized = { ...next, bills };
       stateRef.current = normalized;
       setAppState(normalized);
+      setDataRevision((r) => r + 1);
     },
     [setAppState]
   );
@@ -282,8 +285,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const navigate = useCallback(
     (p: string) => {
       setPage(p as Page);
+      void refreshAppState();
     },
-    [setPage]
+    [setPage, refreshAppState]
   );
 
   const toggleDark = useCallback(async () => {
@@ -426,11 +430,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const res = await api.deleteBill(id);
         applyState(res.state);
         showToast("Bill deleted", "info");
+        await refreshAppState();
       } catch (e) {
         showToast(e instanceof ApiError ? e.message : "Delete failed", "error");
       }
     },
-    [applyState, showToast]
+    [applyState, showToast, refreshAppState]
   );
 
   const duplicateBill = useCallback(
@@ -439,11 +444,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const res = await api.duplicateBill(id);
         applyState(res.state);
         showToast("Bill duplicated", "success");
+        await refreshAppState();
       } catch (e) {
         showToast(e instanceof ApiError ? e.message : "Duplicate failed", "error");
       }
     },
-    [applyState, showToast]
+    [applyState, showToast, refreshAppState]
   );
 
   const markBillComplete = useCallback(
@@ -452,11 +458,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const res = await api.markBillComplete(id);
         applyState(res.state);
         showToast("Bill marked as completed", "success");
+        await refreshAppState();
       } catch (e) {
         showToast(e instanceof ApiError ? e.message : "Update failed", "error");
       }
     },
-    [applyState, showToast]
+    [applyState, showToast, refreshAppState]
   );
 
   const updatePayment = useCallback(
@@ -466,15 +473,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       try {
         const res = await api.updatePayment(billId, roommateId, paid);
         applyState(res.state);
-        const roommate = state.roommates.find((r) => r.id === roommateId);
+        const roommate = stateRef.current.roommates.find((r) => r.id === roommateId);
         if (roommate) {
           showToast(`Payment updated for ${roommate.name.split(" ")[0]}`, "success");
         }
+        setBillViewRevision((r) => r + 1);
       } catch (e) {
         showToast(e instanceof ApiError ? e.message : "Payment update failed", "error");
       }
     },
-    [viewBillId, state.activeBillId, state.bills, state.roommates, applyState, showToast]
+    [viewBillId, state.activeBillId, state.bills, applyState, showToast]
   );
 
   const updateSettings = useCallback(
@@ -591,6 +599,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     pendingBillsCount,
     billsCount,
     billViewRevision,
+    dataRevision,
     refreshAppState,
     searchOpen,
     setSearchOpen,

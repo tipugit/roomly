@@ -23,6 +23,7 @@ import {
 import {
   AreaChart,
   Area,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -31,19 +32,12 @@ import {
   PieChart,
   Pie,
   Cell,
+  Legend,
 } from "recharts";
 import { useApp } from "@/context/AppContext";
 import { calcCollectionSummary, formatCurrency, getCategoryColor } from "@/lib/utils";
-import type { Bill, PayStatus } from "@/types";
-
-const SAMPLE_TREND = [
-  { month: "Jan", total: 3280, extra: 280 },
-  { month: "Feb", total: 3350, extra: 350 },
-  { month: "Mar", total: 3190, extra: 190 },
-  { month: "Apr", total: 3420, extra: 420 },
-  { month: "May", total: 3510, extra: 510 },
-  { month: "Jun", total: 3450, extra: 450 },
-];
+import { chartAxisColor, chartGridColor, chartSeries, payStatusStyle } from "@/lib/themeTokens";
+import type { Bill } from "@/types";
 
 const ACTIVITY_ICONS: Record<string, LucideIcon> = {
   UserPlus,
@@ -64,50 +58,51 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
   Other: Package,
 };
 
-const payStyle: Record<PayStatus, { bg: string; text: string }> = {
-  Paid: { bg: "#ECFDF5", text: "#059669" },
-  Partial: { bg: "#FFFBEB", text: "#D97706" },
-  Pending: { bg: "#FEF2F2", text: "#EF4444" },
-};
+const payStyle = payStatusStyle;
 
 function shortMonth(monthStr: string) {
   const name = monthStr.split(" ")[0] ?? monthStr;
   const map: Record<string, string> = {
-    January: "Jan",
-    February: "Feb",
-    March: "Mar",
-    April: "Apr",
-    May: "May",
-    June: "Jun",
-    July: "Jul",
-    August: "Aug",
-    September: "Sep",
-    October: "Oct",
-    November: "Nov",
-    December: "Dec",
+    January: "Jan", February: "Feb", March: "Mar", April: "Apr",
+    May: "May", June: "Jun", July: "Jul", August: "Aug",
+    September: "Sep", October: "Oct", November: "Nov", December: "Dec",
   };
   return map[name] ?? name.slice(0, 3);
 }
 
+function billSortKey(bill: Bill) {
+  const d = new Date(bill.createdAt);
+  if (!Number.isNaN(d.getTime())) return d.getTime();
+  return bill.month.localeCompare("");
+}
+
 function billToTrend(bill: Bill) {
-  const total = calcCollectionSummary(bill).totalToCollect;
-  const extra = bill.expenses.reduce((sum, e) => sum + e.amount, 0);
-  return { month: shortMonth(bill.month), total, extra, fullMonth: bill.month };
+  const summary = calcCollectionSummary(bill);
+  const expenses = bill.expenses.reduce((sum, e) => sum + e.amount, 0);
+  return {
+    month: shortMonth(bill.month),
+    label: bill.month,
+    total: summary.totalToCollect,
+    rent: bill.rent,
+    expenses,
+    parking: summary.parkingFees,
+  };
 }
 
-interface TooltipPayload {
-  name: string;
-  value: number;
-  color: string;
-}
-
-interface AreaTooltipProps {
+interface TrendTooltipProps {
   active?: boolean;
-  payload?: TooltipPayload[];
+  payload?: { name: string; value: number; color: string }[];
   label?: string;
 }
 
-const CustomAreaTooltip = ({ active, payload, label }: AreaTooltipProps) => {
+const TREND_LABELS: Record<string, string> = {
+  total: "Total bill",
+  rent: "Rent",
+  expenses: "Expenses",
+  parking: "Parking",
+};
+
+const TrendTooltip = ({ active, payload, label }: TrendTooltipProps) => {
   if (!active || !payload?.length) return null;
   return (
     <div
@@ -115,19 +110,21 @@ const CustomAreaTooltip = ({ active, payload, label }: AreaTooltipProps) => {
       style={{
         background: "var(--card)",
         border: "1px solid var(--border)",
-        boxShadow: "0 8px 24px rgba(79,70,229,0.14)",
-        minWidth: 130,
+        boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+        minWidth: 140,
       }}
     >
-      <div style={{ color: "var(--muted-foreground)", fontSize: "11px", marginBottom: 5, fontWeight: 600 }}>
-        {label} 2026
+      <div style={{ color: "var(--muted-foreground)", fontSize: "11px", marginBottom: 6, fontWeight: 600 }}>
+        {label}
       </div>
       {payload.map((p) => (
-        <div key={p.name} className="flex items-center gap-2 mt-1">
-          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: p.color }} />
-          <span style={{ color: "var(--muted-foreground)", fontSize: "12px" }}>
-            {p.name === "total" ? "Total" : "Extra"}:
-          </span>
+        <div key={p.name} className="flex items-center justify-between gap-3 mt-1">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full" style={{ background: p.color }} />
+            <span style={{ color: "var(--muted-foreground)", fontSize: "12px" }}>
+              {TREND_LABELS[p.name] ?? p.name}
+            </span>
+          </div>
           <span style={{ color: "var(--foreground)", fontSize: "12px", fontWeight: 600 }}>
             ${p.value.toLocaleString()}
           </span>
@@ -168,29 +165,22 @@ const renderPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }:
 };
 
 export function DashboardPage() {
-  const { roommates, activeBill, activities, bills, navigate, settings } = useApp();
+  const { roommates, activeBill, activities, bills, navigate, settings, darkMode } = useApp();
 
   const monthlyTrend = useMemo(() => {
-    if (bills.length > 1) {
-      return [...bills]
-        .reverse()
-        .slice(-6)
-        .map(billToTrend);
-    }
-    if (bills.length === 1) {
-      const current = billToTrend(bills[0]);
-      const others = SAMPLE_TREND.filter((d) => d.month !== current.month).slice(0, 5);
-      return [...others, current].sort((a, b) => {
-        const order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-        return order.indexOf(a.month) - order.indexOf(b.month);
-      });
-    }
-    return SAMPLE_TREND;
+    if (bills.length === 0) return [];
+    return [...bills]
+      .sort((a, b) => billSortKey(a) - billSortKey(b))
+      .slice(-8)
+      .map(billToTrend);
   }, [bills]);
 
   const [activeMonth, setActiveMonth] = useState(
-    () => (activeBill ? shortMonth(activeBill.month) : monthlyTrend[monthlyTrend.length - 1]?.month ?? "Jun")
+    () => monthlyTrend[monthlyTrend.length - 1]?.month ?? ""
   );
+
+  const axisColor = chartAxisColor(darkMode);
+  const gridColor = chartGridColor(darkMode);
 
   const billTotal = activeBill ? calcCollectionSummary(activeBill).totalToCollect : 0;
   const extraTotal = activeBill ? activeBill.expenses.reduce((s, e) => s + e.amount, 0) : 0;
@@ -221,8 +211,8 @@ export function DashboardPage() {
         change: roommates.length > 0 ? `${activeRoommates} active` : "None yet",
         up: true,
         icon: Users,
-        lightBg: "#EEF2FF",
-        iconColor: "#4F46E5",
+        lightBg: "var(--icon-indigo-bg)",
+        iconColor: "var(--icon-indigo-text)",
       },
       {
         label: "Total Collection",
@@ -233,8 +223,8 @@ export function DashboardPage() {
         change: activeBill ? "Current month" : "—",
         up: true,
         icon: Home,
-        lightBg: "#ECFEFF",
-        iconColor: "#06B6D4",
+        lightBg: "var(--icon-cyan-bg)",
+        iconColor: "var(--icon-cyan-text)",
       },
       {
         label: "Monthly Rent",
@@ -243,8 +233,8 @@ export function DashboardPage() {
         change: "Base rent",
         up: true,
         icon: TrendingUp,
-        lightBg: "#EEF2FF",
-        iconColor: "#4F46E5",
+        lightBg: "var(--icon-indigo-bg)",
+        iconColor: "var(--icon-indigo-text)",
       },
       {
         label: "Extra Expenses",
@@ -253,8 +243,8 @@ export function DashboardPage() {
         change: activeBill ? `${activeBill.expenses.length} items` : "—",
         up: true,
         icon: TrendingUp,
-        lightBg: "#ECFDF5",
-        iconColor: "#10B981",
+        lightBg: "var(--icon-emerald-bg)",
+        iconColor: "var(--icon-emerald-text)",
       },
       {
         label: "Pending",
@@ -263,8 +253,8 @@ export function DashboardPage() {
         change: outstandingCount > 0 ? "Action needed" : "All clear",
         up: outstandingCount === 0,
         icon: AlertCircle,
-        lightBg: "#FDF2F8",
-        iconColor: "#EC4899",
+        lightBg: "var(--icon-pink-bg)",
+        iconColor: "var(--icon-pink-text)",
       },
     ],
     [roommates.length, activeRoommates, pendingRoommates, activeBill, extraTotal, outstanding, outstandingCount, billTotal, parkingTotal]
@@ -465,8 +455,8 @@ export function DashboardPage() {
               <div
                 className="flex items-center gap-0.5 px-2 py-0.5 rounded-full font-semibold"
                 style={{
-                  background: card.up ? "#ECFDF5" : "#FEF2F2",
-                  color: card.up ? "#059669" : "#EF4444",
+                  background: card.up ? "var(--status-success-bg)" : "var(--status-danger-bg)",
+                  color: card.up ? "var(--status-success-text)" : "var(--status-danger-text)",
                   fontSize: "10px",
                 }}
               >
@@ -509,90 +499,95 @@ export function DashboardPage() {
             boxShadow: "0 2px 16px rgba(79,70,229,0.06)",
           }}
         >
-          <div className="flex items-start justify-between mb-4 sm:mb-6 gap-2">
+          <div className="flex items-start justify-between mb-4 sm:mb-5 gap-2">
             <div>
-              <h3 style={{ color: "var(--foreground)", fontWeight: 700, fontSize: "15px" }}>Expense Overview</h3>
+              <h3 style={{ color: "var(--foreground)", fontWeight: 700, fontSize: "15px" }}>Monthly Bill Trend</h3>
               <p style={{ color: "var(--muted-foreground)", fontSize: "12px", marginTop: 2 }}>
-                {monthlyTrend.length}-month trend
-                {monthButtons.length > 0 ? ` · ${monthButtons[0]}–${monthButtons[monthButtons.length - 1]}` : ""}
+                Total, rent, and expenses across your bills
               </p>
             </div>
-            <div className="flex gap-1 overflow-x-auto flex-shrink-0" style={{ scrollbarWidth: "none" }}>
-              {monthButtons.map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setActiveMonth(m)}
-                  className="px-2 py-1 rounded-lg font-medium transition-all flex-shrink-0"
-                  style={{
-                    background: activeMonth === m ? "#4F46E5" : "var(--muted)",
-                    color: activeMonth === m ? "white" : "var(--muted-foreground)",
-                    fontSize: "11px",
-                  }}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
-          </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={monthlyTrend} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-              <defs>
-                <linearGradient id="totalFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#4F46E5" stopOpacity={0.22} />
-                  <stop offset="100%" stopColor="#4F46E5" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="extraFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#06B6D4" stopOpacity={0.22} />
-                  <stop offset="100%" stopColor="#06B6D4" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(79,70,229,0.07)" vertical={false} />
-              <XAxis
-                dataKey="month"
-                tick={{ fill: "#94A3B8", fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tick={{ fill: "#94A3B8", fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(v) => `$${(v / 1000).toFixed(1)}k`}
-                width={42}
-              />
-              <Tooltip content={<CustomAreaTooltip />} />
-              <Area
-                type="monotone"
-                dataKey="total"
-                stroke="#4F46E5"
-                strokeWidth={2.5}
-                fill="url(#totalFill)"
-                dot={false}
-                activeDot={{ r: 5, fill: "#4F46E5" }}
-              />
-              <Area
-                type="monotone"
-                dataKey="extra"
-                stroke="#06B6D4"
-                strokeWidth={2}
-                fill="url(#extraFill)"
-                strokeDasharray="5 4"
-                dot={false}
-                activeDot={{ r: 4, fill: "#06B6D4" }}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-          <div className="flex items-center gap-4 sm:gap-5 mt-3">
-            {[
-              { color: "#4F46E5", label: "Total monthly cost" },
-              { color: "#06B6D4", label: "Extra expenses" },
-            ].map((l) => (
-              <div key={l.label} className="flex items-center gap-2">
-                <div className="w-3 h-0.5 rounded flex-shrink-0" style={{ background: l.color }} />
-                <span style={{ color: "var(--muted-foreground)", fontSize: "11px" }}>{l.label}</span>
+            {monthButtons.length > 0 && (
+              <div className="flex gap-1 overflow-x-auto flex-shrink-0" style={{ scrollbarWidth: "none" }}>
+                {monthButtons.map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setActiveMonth(m)}
+                    className="px-2 py-1 rounded-lg font-medium transition-all flex-shrink-0"
+                    style={{
+                      background: activeMonth === m ? "var(--primary)" : "var(--muted)",
+                      color: activeMonth === m ? "var(--primary-foreground)" : "var(--muted-foreground)",
+                      fontSize: "11px",
+                    }}
+                  >
+                    {m}
+                  </button>
+                ))}
               </div>
-            ))}
+            )}
           </div>
+          {monthlyTrend.length > 0 ? (
+            <>
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart data={monthlyTrend} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                  <defs>
+                    <linearGradient id="totalFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={chartSeries.total.fill} stopOpacity={0.2} />
+                      <stop offset="100%" stopColor={chartSeries.total.fill} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
+                  <XAxis dataKey="month" tick={{ fill: axisColor, fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis
+                    tick={{ fill: axisColor, fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(v) => `$${(v / 1000).toFixed(1)}k`}
+                    width={42}
+                  />
+                  <Tooltip content={<TrendTooltip />} />
+                  <Legend
+                    verticalAlign="top"
+                    height={28}
+                    formatter={(value) => TREND_LABELS[value] ?? value}
+                    wrapperStyle={{ fontSize: 11, color: "var(--muted-foreground)" }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="total"
+                    stroke={chartSeries.total.stroke}
+                    strokeWidth={2.5}
+                    fill="url(#totalFill)"
+                    dot={false}
+                    activeDot={{ r: 5 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="rent"
+                    stroke={chartSeries.rent.stroke}
+                    strokeWidth={2}
+                    dot={{ r: 3, fill: chartSeries.rent.fill }}
+                    activeDot={{ r: 5 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="expenses"
+                    stroke={chartSeries.expenses.stroke}
+                    strokeWidth={2}
+                    strokeDasharray="4 3"
+                    dot={{ r: 3, fill: chartSeries.expenses.fill }}
+                    activeDot={{ r: 5 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </>
+          ) : (
+            <div
+              className="flex items-center justify-center rounded-xl"
+              style={{ height: 220, background: "var(--muted)", color: "var(--muted-foreground)", fontSize: "13px" }}
+            >
+              Create bills to see monthly trends
+            </div>
+          )}
         </div>
 
         <div
@@ -695,7 +690,7 @@ export function DashboardPage() {
             {activeBill && (
               <span
                 className="px-2.5 py-1 rounded-full font-semibold"
-                style={{ background: "#EEF2FF", color: "#4F46E5", fontSize: "11px" }}
+                style={{ background: "var(--status-info-bg)", color: "var(--status-info-text)", fontSize: "11px" }}
               >
                 {activeBill.month}
               </span>

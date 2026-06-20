@@ -20,6 +20,7 @@ import { BillAnnouncements } from "@/components/BillAnnouncements";
 import { CollectionSummaryCard } from "@/components/CollectionSummaryCard";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { MemberCalculationPanel } from "@/components/MemberCalculationPanel";
+import { actionButtonStyle, payStatusStyle } from "@/lib/themeTokens";
 import {
   buildMemberCalculationSteps,
   buildMemberShareBreakdown,
@@ -37,10 +38,10 @@ import {
   normalizeBillShares,
 } from "@/lib/utils";
 
-const statusConfig: Record<string, { bg: string; text: string; icon: ReactNode }> = {
-  Paid: { bg: "#ECFDF5", text: "#059669", icon: <CheckCircle2 size={14} style={{ color: "#059669" }} /> },
-  Partial: { bg: "#FFFBEB", text: "#D97706", icon: <Clock size={14} style={{ color: "#D97706" }} /> },
-  Pending: { bg: "#FEF2F2", text: "#EF4444", icon: <XCircle size={14} style={{ color: "#EF4444" }} /> },
+const statusIcons: Record<string, ReactNode> = {
+  Paid: <CheckCircle2 size={14} style={{ color: "var(--status-success-text)" }} />,
+  Partial: <Clock size={14} style={{ color: "var(--status-warning-text)" }} />,
+  Pending: <XCircle size={14} style={{ color: "var(--status-danger-text)" }} />,
 };
 
 interface BillViewPageProps {
@@ -183,73 +184,93 @@ export function BillViewPage({ billId }: BillViewPageProps) {
 
   return (
     <div className="max-w-[900px] mx-auto space-y-4 pb-4">
-      {/* Header */}
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-3 min-w-0">
+      {/* Compact header panel */}
+      <div
+        className="rounded-xl overflow-hidden"
+        style={{ background: "var(--card)", border: "1px solid var(--border)", boxShadow: "0 2px 12px var(--surface-tint)" }}
+      >
+        <div className="flex items-center gap-2.5 p-3 border-b" style={{ borderColor: "var(--border)" }}>
           <button
             type="button"
             onClick={() => navigate("expenses")}
-            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+            style={{ background: "var(--muted)", border: "1px solid var(--border)" }}
           >
-            <ArrowLeft size={15} />
+            <ArrowLeft size={14} />
           </button>
-          <div className="min-w-0">
-            <h1 className="truncate" style={{ fontWeight: 800, fontSize: "clamp(20px, 5vw, 26px)", letterSpacing: "-0.5px" }}>
+          <div className="flex-1 min-w-0">
+            <h1 className="truncate" style={{ fontWeight: 700, fontSize: "17px", letterSpacing: "-0.3px" }}>
               {displayTitle}
             </h1>
-            <p style={{ color: "var(--muted-foreground)", fontSize: "12px", marginTop: 2 }}>
+            <p className="truncate" style={{ color: "var(--muted-foreground)", fontSize: "11px", marginTop: 1 }}>
               {bill.month} · {houseLabel}
             </p>
           </div>
+          <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
+            {[
+              { label: linkCopied ? "Copied!" : "Link", icon: Link2, onClick: handleCopyLink, style: actionButtonStyle.success, title: "Copy share link" },
+              { label: "Public", icon: ExternalLink, onClick: handleOpenPublic, style: actionButtonStyle.primary, title: "Open public page" },
+              { label: "Edit", icon: Edit2, onClick: handleEdit, style: actionButtonStyle.warning, title: "Edit bill" },
+              { label: "Copy", icon: Copy, onClick: () => void duplicateBill(bill.id), style: actionButtonStyle.muted, title: "Duplicate bill" },
+              { label: "Paid", icon: Check, onClick: () => void markBillComplete(bill.id), style: actionButtonStyle.success, title: "Mark all paid" },
+              { label: "Delete", icon: Trash2, onClick: () => setDeleteOpen(true), style: actionButtonStyle.danger, title: "Delete bill" },
+            ].map((action) => (
+              <button
+                key={action.label}
+                type="button"
+                title={action.title}
+                onClick={action.onClick}
+                className="flex items-center gap-1 px-2 py-1.5 rounded-lg font-semibold text-[10px] transition-all active:scale-95"
+                style={{
+                  background: action.style.bg,
+                  color: action.style.text,
+                  border: `1px solid ${action.style.border}`,
+                }}
+              >
+                <action.icon size={12} />
+                {action.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-px" style={{ background: "var(--border)" }}>
           {[
-            { label: linkCopied ? "Copied!" : "Copy Link", icon: Link2, onClick: handleCopyLink, color: "#059669", bg: "#ECFDF5" },
-            { label: "Public Link", icon: ExternalLink, onClick: handleOpenPublic, color: "#4F46E5", bg: "#EEF2FF" },
-            { label: "Edit", icon: Edit2, onClick: handleEdit, color: "#D97706", bg: "#FFFBEB" },
-            { label: "Duplicate", icon: Copy, onClick: () => void duplicateBill(bill.id), color: "#64748B", bg: "var(--muted)" },
-            { label: "Mark Paid", icon: Check, onClick: () => void markBillComplete(bill.id), color: "#059669", bg: "#ECFDF5" },
-            { label: "Delete", icon: Trash2, onClick: () => setDeleteOpen(true), color: "#EF4444", bg: "#FEF2F2" },
-          ].map((action) => (
-            <button
-              key={action.label}
-              type="button"
-              onClick={action.onClick}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl font-semibold text-xs transition-all active:scale-95"
-              style={{ background: action.bg, color: action.color, border: `1px solid ${action.color}22` }}
-            >
-              <action.icon size={13} />
-              {action.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div
-        className="rounded-2xl p-5 relative overflow-hidden"
-        style={{
-          background: "linear-gradient(135deg, #312E81 0%, #4F46E5 50%, #7C3AED 100%)",
-          boxShadow: "0 12px 40px rgba(79,70,229,0.2)",
-        }}
-      >
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: "To Collect", value: `$${totalToCollect.toLocaleString()}`, color: "white" },
-            { label: "Collected", value: `$${totalPaid.toLocaleString()}`, color: "#34D399" },
-            { label: "Rate", value: `${collectPct}%`, color: "#FCD34D" },
-            { label: "Members", value: String(bill.selectedRoommateIds.length), color: "#A5B4FC" },
+            { label: "To Collect", value: `$${totalToCollect.toLocaleString()}` },
+            { label: "Collected", value: `$${totalPaid.toLocaleString()}`, accent: "var(--status-success-text)" },
+            { label: "Rate", value: `${collectPct}%`, accent: "var(--chart-4)" },
+            { label: "Members", value: String(bill.selectedRoommateIds.length), accent: "var(--primary)" },
           ].map((s) => (
-            <div key={s.label} className="px-3 py-2.5 rounded-xl text-center" style={{ background: "rgba(255,255,255,0.12)" }}>
-              <div style={{ color: "rgba(255,255,255,0.55)", fontSize: "10px", fontWeight: 600 }}>{s.label}</div>
-              <div style={{ color: s.color, fontWeight: 800, fontSize: "20px", marginTop: 2 }}>{s.value}</div>
+            <div key={s.label} className="px-3 py-2.5 text-center" style={{ background: "var(--card)" }}>
+              <div style={{ color: "var(--muted-foreground)", fontSize: "10px", fontWeight: 600 }}>{s.label}</div>
+              <div style={{ color: s.accent ?? "var(--foreground)", fontWeight: 800, fontSize: "16px", marginTop: 2 }}>{s.value}</div>
             </div>
           ))}
         </div>
-        <p className="flex items-center gap-1.5 mt-3" style={{ color: "rgba(255,255,255,0.5)", fontSize: "11px" }}>
-          <Calendar size={11} />
+
+        <div className="sm:hidden flex flex-wrap gap-1 p-2 border-t" style={{ borderColor: "var(--border)" }}>
+          {[
+            { icon: Link2, onClick: handleCopyLink, style: actionButtonStyle.success },
+            { icon: ExternalLink, onClick: handleOpenPublic, style: actionButtonStyle.primary },
+            { icon: Edit2, onClick: handleEdit, style: actionButtonStyle.warning },
+            { icon: Copy, onClick: () => void duplicateBill(bill.id), style: actionButtonStyle.muted },
+            { icon: Check, onClick: () => void markBillComplete(bill.id), style: actionButtonStyle.success },
+            { icon: Trash2, onClick: () => setDeleteOpen(true), style: actionButtonStyle.danger },
+          ].map((action, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={action.onClick}
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ background: action.style.bg, color: action.style.text, border: `1px solid ${action.style.border}` }}
+            >
+              <action.icon size={14} />
+            </button>
+          ))}
+        </div>
+
+        <p className="flex items-center gap-1.5 px-3 py-1.5" style={{ color: "var(--muted-foreground)", fontSize: "10px", borderTop: "1px solid var(--border)" }}>
+          <Calendar size={10} />
           Created {bill.createdAt}
         </p>
       </div>
@@ -335,7 +356,7 @@ export function BillViewPage({ billId }: BillViewPageProps) {
         <h3 style={{ fontWeight: 700, fontSize: "15px", marginBottom: 8 }}>Member Balances</h3>
         <div className="space-y-3">
           {roommateBreakdown.map((r) => {
-            const sc = statusConfig[r.status];
+            const sc = payStatusStyle[r.status];
             const remaining = r.amountDue;
             return (
               <div
@@ -365,7 +386,7 @@ export function BillViewPage({ billId }: BillViewPageProps) {
                         {formatAmount(remaining, roundUp)}
                       </div>
                       <div className="flex items-center gap-1 justify-end mt-0.5">
-                        {sc.icon}
+                        {statusIcons[r.status]}
                         <span style={{ color: sc.text, fontSize: "11px", fontWeight: 600 }}>{r.status}</span>
                       </div>
                     </div>
@@ -382,7 +403,7 @@ export function BillViewPage({ billId }: BillViewPageProps) {
                           type="button"
                           onClick={() => updatePayment(r.roommateId, Math.round(r.share / 2))}
                           className="flex-1 py-2.5 rounded-xl text-xs font-semibold"
-                          style={{ background: "#FFFBEB", color: "#D97706", border: "1px solid rgba(217,119,6,0.2)" }}
+                          style={{ background: "var(--status-warning-bg)", color: "var(--status-warning-text)", border: "1px solid var(--action-warning-border)" }}
                         >
                           Mark Partial
                         </button>
