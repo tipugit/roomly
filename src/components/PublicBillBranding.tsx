@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from "react";
 import { Home, Mail, Phone, Users, Receipt, Share2, ArrowRight, Sparkles } from "lucide-react";
 import type { PublicBillBranding } from "@/lib/share";
 import { getAppOrigin } from "@/lib/share";
+import { PARENT_URL, SITE_URL } from "@/components/SiteFooter";
 
 const DEFAULT_BRANDING: PublicBillBranding = {
   platformName: "Roomly",
@@ -218,7 +219,6 @@ export function PublicBillFooter({
   currency?: string;
 }) {
   const branding = resolvePublicBranding(raw);
-  const homeUrl = branding.websiteUrl || DEFAULT_BRANDING.websiteUrl!;
 
   return (
     <footer
@@ -226,19 +226,35 @@ export function PublicBillFooter({
       style={{ borderTop: "1px solid rgba(79,70,229,0.08)", background: "rgba(255,255,255,0.6)" }}
     >
       <a
-        href={homeUrl}
+        href={SITE_URL}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex flex-col items-center gap-2 no-underline group"
       >
         <BrandMark branding={branding} size="lg" />
-        <span
-          className="group-hover:underline"
-          style={{ fontWeight: 800, color: "#4F46E5", fontSize: "16px", letterSpacing: "-0.3px" }}
+      </a>
+
+      <p style={{ fontSize: "14px", lineHeight: 1.5 }}>
+        <a
+          href={SITE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="no-underline hover:underline"
+          style={{ fontWeight: 800, color: "#4F46E5", letterSpacing: "-0.2px" }}
         >
           {branding.platformName}
-        </span>
-      </a>
+        </a>
+        <span style={{ color: "#94A3B8", fontWeight: 500 }}> by </span>
+        <a
+          href={PARENT_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="no-underline hover:underline"
+          style={{ fontWeight: 700, color: "#4F46E5" }}
+        >
+          Otipu.com
+        </a>
+      </p>
 
       {branding.footerText && (
         <p style={{ color: "#64748B", fontSize: "12px", maxWidth: 420, margin: "0 auto", lineHeight: 1.5 }}>
@@ -279,29 +295,17 @@ export function PublicBillFooter({
         </p>
       )}
 
-      <div className="flex flex-wrap items-center justify-center gap-2" style={{ fontSize: "11px", color: "#CBD5E1" }}>
+      <div className="flex flex-wrap items-center justify-center gap-2" style={{ fontSize: "11px", color: "#94A3B8" }}>
         <span>All amounts in {currency}</span>
+        <span>·</span>
+        <a href={SITE_URL} target="_blank" rel="noopener noreferrer" className="no-underline hover:underline" style={{ color: "#64748B" }}>
+          rent.otipu.com
+        </a>
+        <span>·</span>
+        <a href={PARENT_URL} target="_blank" rel="noopener noreferrer" className="no-underline hover:underline" style={{ color: "#64748B" }}>
+          otipu.com
+        </a>
       </div>
-
-      <a
-        href={homeUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-block no-underline group"
-        style={{ marginTop: 4 }}
-      >
-        <span
-          className="group-hover:underline"
-          style={{
-            color: "#4F46E5",
-            fontSize: "13px",
-            fontWeight: 700,
-            letterSpacing: "0.02em",
-          }}
-        >
-          {siteLabelFromUrl(homeUrl)}
-        </span>
-      </a>
     </footer>
   );
 }
