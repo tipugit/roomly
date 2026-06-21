@@ -91,7 +91,7 @@ export function buildShareUrl(encoded: string): string {
 }
 
 export function buildShareUrlFromToken(token: string): string {
-  return `${getAppOrigin()}/s/${encodeURIComponent(token)}`;
+  return `${getAppOrigin()}/api/share.php?token=${encodeURIComponent(token)}`;
 }
 
 export function parseHashRoute(): {
@@ -135,10 +135,24 @@ export function parseHashRoute(): {
   return { page, shareData: null, shareToken: null, billId: null, adminSection: "dashboard" };
 }
 
-export function parsePathShareToken(): string | null {
+export function parseShareTokenFromLocation(): string | null {
   if (typeof window === "undefined") return null;
-  const match = window.location.pathname.match(/\/s\/([a-zA-Z0-9]{4,32})\/?$/);
-  return match?.[1] ?? null;
+
+  const pathMatch = window.location.pathname.match(/\/s\/([a-zA-Z0-9]{4,32})\/?$/);
+  if (pathMatch?.[1]) return pathMatch[1];
+
+  const path = window.location.pathname;
+  if (path.endsWith("/api/share.php") || path.endsWith("/share.php")) {
+    const token = new URLSearchParams(window.location.search).get("token")?.trim() ?? "";
+    if (/^[a-zA-Z0-9]{4,32}$/.test(token)) return token;
+  }
+
+  return null;
+}
+
+/** @deprecated use parseShareTokenFromLocation */
+export function parsePathShareToken(): string | null {
+  return parseShareTokenFromLocation();
 }
 
 export function setAdminRoute(section: string) {

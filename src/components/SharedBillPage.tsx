@@ -26,7 +26,7 @@ import {
   buildShareUrlFromToken,
   getAppOrigin,
   parseHashRoute,
-  parsePathShareToken,
+  parseShareTokenFromLocation,
 } from "@/lib/share";
 import {
   buildMemberCalculationSteps,
@@ -155,7 +155,7 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
       ? roommateRows.reduce((s, r) => s + r.share, 0) / roommateRows.length
       : 0;
 
-  const shareToken = parseHashRoute().shareToken ?? parsePathShareToken();
+  const shareToken = parseHashRoute().shareToken ?? parseShareTokenFromLocation();
   const billTitle = bill?.title?.trim() || (bill ? `${bill.month} Bill` : undefined);
   const shareMeta = bill && billTitle
     ? {

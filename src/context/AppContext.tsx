@@ -15,7 +15,7 @@ import { useAuth } from "@/context/AuthContext";
 import {
   decodeSharePayload,
   parseHashRoute,
-  parsePathShareToken,
+  parseShareTokenFromLocation,
   setHashRoute,
   setBillViewRoute,
   type SharePayload,
@@ -131,7 +131,7 @@ function resolveInitialPage(): {
   shareData: string | null;
   billId: string | null;
 } {
-  const pathToken = parsePathShareToken();
+  const pathToken = parseShareTokenFromLocation();
   if (pathToken) {
     return { page: "shared-bill", shareToken: pathToken, shareData: null, billId: null };
   }
@@ -256,7 +256,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const onHashChange = () => {
-      const pathToken = parsePathShareToken();
+      const pathToken = parseShareTokenFromLocation();
       if (pathToken) {
         api.getShare(pathToken).then((res) => {
           setSharedPayload(res.payload);

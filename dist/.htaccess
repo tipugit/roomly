@@ -5,8 +5,8 @@
   # API — leave PHP files alone
   RewriteRule ^api/ - [L]
 
-  # Social share previews (Open Graph) for /s/{token}
-  RewriteRule ^s/([a-zA-Z0-9]{4,32})$ share.php?token=$1 [L,QSA]
+  # Social share previews — /s/{token} and legacy /share.php
+  RewriteRule ^s/([a-zA-Z0-9]{4,32})$ api/share.php?token=$1 [L,QSA]
 
   # Serve existing files and directories as-is
   RewriteCond %{REQUEST_FILENAME} -f [OR]

@@ -32,15 +32,22 @@ function is_social_crawler(): bool
     return false;
 }
 
-function request_origin(): string
+function site_origin(): string
 {
     $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-    $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? ''));
-    if ($scriptDir === '/' || $scriptDir === '.') {
-        $scriptDir = '';
-    }
-    return $scheme . '://' . $host . $scriptDir;
+    return $scheme . '://' . $host;
+}
+
+/** @deprecated use site_origin() for public URLs */
+function request_origin(): string
+{
+    return site_origin();
+}
+
+function share_page_url(string $token): string
+{
+    return site_origin() . '/api/share.php?token=' . rawurlencode($token);
 }
 
 function share_preview_total(array $bill): float
@@ -151,7 +158,7 @@ function share_preview_for_token(PDO $db, string $token): ?array
     }
 
     $logoUrl = trim((string) ($branding['logoUrl'] ?? ''));
-    $imageUrl = $logoUrl !== '' ? $logoUrl : (request_origin() . '/og-share.svg');
+    $imageUrl = $logoUrl !== '' ? $logoUrl : (site_origin() . '/og-share.svg');
 
     return [
         'token' => $token,
@@ -165,10 +172,71 @@ function share_preview_for_token(PDO $db, string $token): ?array
         'currency' => $currency,
         'platformName' => $platformName,
         'imageUrl' => $imageUrl,
-        'canonicalUrl' => request_origin() . '/s/' . rawurlencode($token),
-        'appUrl' => request_origin() . '/#/s/' . rawurlencode($token),
+        'canonicalUrl' => share_page_url($token),
+        'appUrl' => site_origin() . '/#/s/' . rawurlencode($token),
         'websiteUrl' => $websiteUrl,
     ];
+}
+
+function respond_share_page(PDO $db, string $token): void
+{
+    if (!preg_match('/^[a-zA-Z0-9]{4,32}$/', $token)) {
+        http_response_code(404);
+        header('Content-Type: text/html; charset=utf-8');
+        echo '<!doctype html><title>Link not found</title><p>Share link not found.</p>';
+        exit;
+    }
+
+    $preview = share_preview_for_token($db, $token);
+    if (!$preview) {
+        http_response_code(404);
+        header('Content-Type: text/html; charset=utf-8');
+        echo '<!doctype html><title>Bill not found</title><p>This shared bill link is invalid or expired.</p>';
+        exit;
+    }
+
+    if (!is_social_crawler()) {
+        header('Location: ' . $preview['appUrl'], true, 302);
+        exit;
+    }
+
+    header('Content-Type: text/html; charset=utf-8');
+    header('Cache-Control: public, max-age=300');
+    ?>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><?= h($preview['ogTitle']) ?></title>
+  <meta name="description" content="<?= h($preview['description']) ?>" />
+  <link rel="canonical" href="<?= h($preview['canonicalUrl']) ?>" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="<?= h($preview['platformName']) ?>" />
+  <meta property="og:title" content="<?= h($preview['title']) ?>" />
+  <meta property="og:description" content="<?= h($preview['description']) ?>" />
+  <meta property="og:url" content="<?= h($preview['canonicalUrl']) ?>" />
+  <meta property="og:image" content="<?= h($preview['imageUrl']) ?>" />
+  <meta property="og:image:alt" content="<?= h($preview['title'] . ' — ' . $preview['houseName']) ?>" />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="<?= h($preview['title']) ?>" />
+  <meta name="twitter:description" content="<?= h($preview['description']) ?>" />
+  <meta name="twitter:image" content="<?= h($preview['imageUrl']) ?>" />
+
+  <meta name="theme-color" content="#4F46E5" />
+</head>
+<body>
+  <main>
+    <h1><?= h($preview['title']) ?></h1>
+    <p><?= h($preview['description']) ?></p>
+    <p><a href="<?= h($preview['appUrl']) ?>">View bill on <?= h($preview['platformName']) ?></a></p>
+  </main>
+</body>
+</html>
+<?php
+    exit;
 }
 
 function h(string $value): string

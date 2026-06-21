@@ -1,4 +1,4 @@
 deployment:
   tasks:
     - export DEPLOYPATH=/home/otipwvao/rent.otipu.com/
-    - /bin/cp -R dist/* $DEPLOYPATH
+    - /bin/cp -R dist/. $DEPLOYPATH
