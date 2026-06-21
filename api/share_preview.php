@@ -234,6 +234,7 @@ function respond_share_page(PDO $db, string $token): void
 
     header('Content-Type: text/html; charset=utf-8');
     header('Cache-Control: public, max-age=300');
+    $isBot = is_social_crawler();
     ?>
 <!doctype html>
 <html lang="en">
@@ -257,18 +258,18 @@ function respond_share_page(PDO $db, string $token): void
   <meta name="twitter:title" content="<?= h($preview['title']) ?>" />
   <meta name="twitter:description" content="<?= h($preview['description']) ?>" />
   <meta name="twitter:image" content="<?= h($preview['imageUrl']) ?>" />
+<?php if (!$isBot): ?>
+  <script>window.location.replace(<?= json_encode($preview['appUrl'], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>);</script>
+<?php endif; ?>
 </head>
-<body style="margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(160deg,#F0F4FF,#F8FAFC);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px">
-  <div style="max-width:420px;width:100%;background:#fff;border-radius:20px;padding:28px 24px;text-align:center;box-shadow:0 12px 40px rgba(79,70,229,0.12);border:1px solid rgba(79,70,229,0.1)">
-    <div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#4F46E5,#7C3AED);margin:0 auto 16px"></div>
-    <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#4F46E5"><?= h($preview['platformName']) ?></p>
-    <h1 style="margin:0 0 10px;font-size:22px;font-weight:800;color:#0F0D2A;letter-spacing:-0.3px"><?= h($preview['title']) ?></h1>
-    <p style="margin:0 0 20px;font-size:13px;color:#64748B;line-height:1.5"><?= h($preview['description']) ?></p>
-    <a href="<?= h($preview['appUrl']) ?>" style="display:inline-block;padding:12px 22px;border-radius:12px;background:linear-gradient(135deg,#4F46E5,#7C3AED);color:#fff;font-weight:700;font-size:14px;text-decoration:none">View shared bill</a>
-    <p style="margin:20px 0 0;font-size:12px;color:#94A3B8">
-      <a href="<?= h($preview['websiteUrl']) ?>" style="color:#4F46E5;font-weight:600;text-decoration:none"><?= h($preview['siteLabel']) ?></a>
-    </p>
-  </div>
+<body style="margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:#F8FAFC;color:#64748B;text-align:center;padding:48px 20px;font-size:14px">
+<?php if ($isBot): ?>
+  <h1 style="color:#0F0D2A;font-size:20px"><?= h($preview['title']) ?></h1>
+  <p><?= h($preview['description']) ?></p>
+  <p><a href="<?= h($preview['appUrl']) ?>" style="color:#4F46E5">View bill</a> · <a href="<?= h($preview['websiteUrl']) ?>" style="color:#4F46E5"><?= h($preview['siteLabel']) ?></a></p>
+<?php else: ?>
+  <p>Opening bill… <a href="<?= h($preview['appUrl']) ?>" style="color:#4F46E5">Continue</a></p>
+<?php endif; ?>
 </body>
 </html>
 <?php
