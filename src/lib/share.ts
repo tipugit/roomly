@@ -91,7 +91,7 @@ export function buildShareUrl(encoded: string): string {
 }
 
 export function buildShareUrlFromToken(token: string): string {
-  return `${getAppOrigin()}/api/share.php?token=${encodeURIComponent(token)}`;
+  return `${getAppOrigin()}/s/${encodeURIComponent(token)}`;
 }
 
 export function parseHashRoute(): {

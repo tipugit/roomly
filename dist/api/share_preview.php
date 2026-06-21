@@ -13,6 +13,9 @@ function is_social_crawler(): bool
         'telegrambot',
         'slackbot',
         'discordbot',
+        'snapchat',
+        'iframely',
+        'skypeuripreview',
         'pinterest',
         'googlebot',
         'bingbot',
@@ -62,7 +65,15 @@ function request_origin(): string
 
 function share_page_url(string $token): string
 {
-    return site_origin() . '/api/share.php?token=' . rawurlencode($token);
+    return site_origin() . '/s/' . rawurlencode($token);
+}
+
+function share_og_image_url(string $token, string $logoUrl = ''): string
+{
+    if ($logoUrl !== '' && preg_match('/\.(png|jpe?g|webp)(\?|#|$)/i', $logoUrl)) {
+        return $logoUrl;
+    }
+    return site_origin() . '/api/og.php?token=' . rawurlencode($token);
 }
 
 function share_preview_total(array $bill): float
@@ -161,7 +172,7 @@ function share_preview_for_token(PDO $db, string $token): ?array
     if ($websiteUrl === '') {
         $websiteUrl = site_origin();
     }
-    $siteLabel = site_label_from_url($websiteUrl);
+    $siteLabel = site_label_from_url(site_origin());
 
     $description = sprintf(
         '%s · %s · %s total · %d %s · %s',
@@ -174,7 +185,7 @@ function share_preview_for_token(PDO $db, string $token): ?array
     );
 
     $logoUrl = trim((string) ($branding['logoUrl'] ?? ''));
-    $imageUrl = $logoUrl !== '' ? $logoUrl : (site_origin() . '/og-share.svg');
+    $imageUrl = share_og_image_url($token, $logoUrl);
 
     return [
         'token' => $token,
@@ -212,13 +223,9 @@ function respond_share_page(PDO $db, string $token): void
         exit;
     }
 
-    if (!is_social_crawler()) {
-        header('Location: ' . $preview['appUrl'], true, 302);
-        exit;
-    }
-
     header('Content-Type: text/html; charset=utf-8');
     header('Cache-Control: public, max-age=300');
+    $autoRedirect = !is_social_crawler();
     ?>
 <!doctype html>
 <html lang="en">
@@ -235,6 +242,8 @@ function respond_share_page(PDO $db, string $token): void
   <meta property="og:description" content="<?= h($preview['description']) ?>" />
   <meta property="og:url" content="<?= h($preview['canonicalUrl']) ?>" />
   <meta property="og:image" content="<?= h($preview['imageUrl']) ?>" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
   <meta property="og:image:alt" content="<?= h($preview['title'] . ' — ' . $preview['houseName']) ?>" />
 
   <meta name="twitter:card" content="summary_large_image" />
@@ -243,6 +252,9 @@ function respond_share_page(PDO $db, string $token): void
   <meta name="twitter:image" content="<?= h($preview['imageUrl']) ?>" />
 
   <meta name="theme-color" content="#4F46E5" />
+<?php if ($autoRedirect): ?>
+  <script>window.location.replace(<?= json_encode($preview['appUrl'], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>);</script>
+<?php endif; ?>
 </head>
 <body>
   <main>

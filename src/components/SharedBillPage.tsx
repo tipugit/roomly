@@ -162,9 +162,14 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
   const shareMeta = bill && billTitle
     ? {
         title: billTitle,
-        description: `${bill.houseName || houseName} · ${bill.month} · ${formatAmount(totalToCollect, roundUp)} total · ${roommateCount} ${roommateCount === 1 ? "roommate" : "roommates"} · ${siteLabelFromUrl(branding.websiteUrl || "https://rent.otipu.com")}`,
+        description: `${bill.houseName || houseName} · ${bill.month} · ${formatAmount(totalToCollect, roundUp)} total · ${roommateCount} ${roommateCount === 1 ? "roommate" : "roommates"} · ${siteLabelFromUrl(getAppOrigin())}`,
         url: shareToken ? buildShareUrlFromToken(shareToken) : undefined,
-        imageUrl: branding.logoUrl || `${getAppOrigin()}/og-share.svg`,
+        imageUrl:
+          branding.logoUrl?.match(/\.(png|jpe?g|webp)/i)
+            ? branding.logoUrl
+            : shareToken
+              ? `${getAppOrigin()}/api/og.php?token=${encodeURIComponent(shareToken)}`
+              : `${getAppOrigin()}/og-share.svg`,
       }
     : undefined;
 
