@@ -87,8 +87,8 @@ export function getUpfrontPaidByMember(roommateId: number, expenses: Expense[]):
 }
 
 /** Remaining balance for a roommate after recorded payments. */
-export function getMemberAmountDue(share: RoommateShare): number {
-  return roundMoney(Math.max(0, share.share - share.paid));
+export function getMemberAmountDue(share: RoommateShare, roundUp = false): number {
+  return roundMoney(Math.max(0, share.share - share.paid), roundUp);
 }
 
 export function buildMemberShareBreakdown(
@@ -371,9 +371,10 @@ export function formatSharedByLabel(
 
 export function calcCollectionSummary(
   bill: Bill,
-  roommateShares?: RoommateShare[]
+  roommateShares?: RoommateShare[],
+  roundUp = false
 ): CollectionSummary {
-  const shares = roommateShares ?? bill.roommateShares;
+  const shares = roommateShares ?? normalizeBillShares(bill, roundUp);
   const additionalExpenses = bill.expenses.reduce((sum, e) => sum + e.amount, 0);
   const parkingFees = calcTotalParkingFees(bill.parkingSnapshot, bill.selectedRoommateIds);
   const parkingIncluded = bill.parkingSnapshot?.parkingIncludedInRent ?? false;
@@ -381,15 +382,15 @@ export function calcCollectionSummary(
     ? bill.rent + additionalExpenses
     : bill.rent + additionalExpenses + parkingFees;
   const totalPaid = shares.reduce((sum, rs) => sum + rs.paid, 0);
-  const outstanding = shares.reduce((sum, rs) => sum + Math.max(0, rs.share - rs.paid), 0);
+  const outstanding = shares.reduce((sum, rs) => sum + getMemberAmountDue(rs, roundUp), 0);
 
   return {
     baseRent: bill.rent,
     additionalExpenses,
     parkingFees,
-    totalToCollect: roundMoney(totalToCollect),
-    totalPaid: roundMoney(totalPaid),
-    outstanding: roundMoney(outstanding),
+    totalToCollect: roundMoney(totalToCollect, roundUp),
+    totalPaid: roundMoney(totalPaid, roundUp),
+    outstanding: roundMoney(outstanding, roundUp),
   };
 }
 

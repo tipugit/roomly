@@ -109,7 +109,7 @@ export function BillViewPage({ billId }: BillViewPageProps) {
         color: roommate?.color ?? "#64748B",
         share: rs.share,
         paid: rs.paid,
-        amountDue: getMemberAmountDue(rs),
+        amountDue: getMemberAmountDue(rs, roundUp),
         status: rs.status,
         calc,
         calcLines,
@@ -117,7 +117,7 @@ export function BillViewPage({ billId }: BillViewPageProps) {
     });
   }, [bill, roommates, roundUp]);
 
-  const collectionSummary = bill ? calcCollectionSummary(bill) : null;
+  const collectionSummary = bill ? calcCollectionSummary(bill, undefined, roundUp) : null;
   const totalPaid = collectionSummary?.totalPaid ?? 0;
   const totalToCollect = collectionSummary?.totalToCollect ?? 0;
   const collectPct = totalToCollect > 0 ? Math.round((totalPaid / totalToCollect) * 100) : 0;
@@ -219,8 +219,8 @@ export function BillViewPage({ billId }: BillViewPageProps) {
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-px" style={{ background: "var(--border)" }}>
           {[
-            { label: "To Collect", value: `$${totalToCollect.toLocaleString()}` },
-            { label: "Collected", value: `$${totalPaid.toLocaleString()}`, accent: "var(--status-success-text)" },
+            { label: "To Collect", value: formatAmount(totalToCollect, roundUp) },
+            { label: "Collected", value: formatAmount(totalPaid, roundUp), accent: "var(--status-success-text)" },
             { label: "Rate", value: `${collectPct}%`, accent: "var(--chart-4)" },
             { label: "Members", value: String(bill.selectedRoommateIds.length), accent: "var(--primary)" },
           ].map((s) => (
@@ -268,7 +268,7 @@ export function BillViewPage({ billId }: BillViewPageProps) {
         globalMessage={settings.globalMessage}
       />
 
-      {collectionSummary && <CollectionSummaryCard summary={collectionSummary} compact />}
+      {collectionSummary && <CollectionSummaryCard summary={collectionSummary} compact roundUp={roundUp} />}
 
       {/* Chart + expenses */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

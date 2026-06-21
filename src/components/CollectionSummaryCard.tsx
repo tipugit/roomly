@@ -1,16 +1,18 @@
 import type { CollectionSummary } from "@/lib/utils";
-import { formatCurrencyDetailed } from "@/lib/utils";
+import { formatAmount } from "@/lib/utils";
 
 interface CollectionSummaryCardProps {
   summary: CollectionSummary;
   compact?: boolean;
   variant?: "default" | "dark" | "public";
+  roundUp?: boolean;
 }
 
 export function CollectionSummaryCard({
   summary,
   compact = false,
   variant = "default",
+  roundUp = false,
 }: CollectionSummaryCardProps) {
   const isDark = variant === "dark";
   const isPublic = variant === "public";
@@ -74,7 +76,7 @@ export function CollectionSummaryCard({
                 fontSize: compact ? "12px" : "13px",
               }}
             >
-              {formatCurrencyDetailed(row.value)}
+              {formatAmount(row.value, roundUp)}
             </span>
           </div>
         ))}
@@ -104,7 +106,7 @@ export function CollectionSummaryCard({
                 fontSize: row.label === "Total To Collect" ? (compact ? "14px" : "16px") : compact ? "12px" : "14px",
               }}
             >
-              {formatCurrencyDetailed(row.value)}
+              {formatAmount(row.value, roundUp)}
             </span>
           </div>
         ))}

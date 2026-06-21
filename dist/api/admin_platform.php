@@ -112,10 +112,10 @@ function platform_branding(PDO $db): array
         'logoUrl' => '',
         'faviconUrl' => '',
         'loginLogoUrl' => '',
-        'footerText' => '© Roomly',
-        'supportEmail' => '',
+        'footerText' => '© Roomly · Secure shared household bills',
+        'supportEmail' => 'hello@otipu.com',
         'supportPhone' => '',
-        'websiteUrl' => '',
+        'websiteUrl' => 'https://rent.otipu.com',
     ]);
 }
 

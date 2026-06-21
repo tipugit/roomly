@@ -581,6 +581,7 @@ if (preg_match('#^share/([a-zA-Z0-9]+)$#', $route, $m) && $method === 'GET') {
     if (!$bill) respond_error('Bill not found.', 404);
 
     $roommates = array_values(array_filter($state['roommates'], fn($r) => in_array($r['id'], $bill['selectedRoommateIds'], true)));
+    $branding = platform_branding($db);
 
     respond([
         'ok' => true,
@@ -597,6 +598,9 @@ if (preg_match('#^share/([a-zA-Z0-9]+)$#', $route, $m) && $method === 'GET') {
             'address' => $state['settings']['address'] ?? '',
             'globalMessageTitle' => $state['settings']['globalMessageTitle'] ?? '',
             'globalMessage' => $state['settings']['globalMessage'] ?? '',
+            'roundUpAmounts' => (bool) ($state['settings']['roundUpAmounts'] ?? false),
+            'currency' => $state['settings']['currency'] ?? 'USD',
+            'branding' => $branding,
         ],
     ]);
 }

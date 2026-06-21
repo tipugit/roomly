@@ -281,12 +281,12 @@ export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) 
     createdAt: "",
     parkingSnapshot,
   };
-  const collectionSummary = calcCollectionSummary(previewBill);
+  const collectionSummary = calcCollectionSummary(previewBill, roommateShares, roundUp);
   const grandTotal = collectionSummary.totalToCollect;
 
   const breakdown = roommateShares.map((rs) => {
     const r = roommates.find((rm) => rm.id === rs.roommateId)!;
-    const amountDue = getMemberAmountDue(rs);
+    const amountDue = getMemberAmountDue(rs, roundUp);
     const calc = buildMemberShareBreakdown(
       rs.roommateId,
       selected,

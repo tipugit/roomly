@@ -1,7 +1,9 @@
 <?php
 declare(strict_types=1);
 
-header('Content-Type: application/json; charset=utf-8');
+if (!defined('ROOMLY_HTML_RESPONSE')) {
+    header('Content-Type: application/json; charset=utf-8');
+}
 
 $configPath = __DIR__ . '/config.php';
 if (!file_exists($configPath)) {

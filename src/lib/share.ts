@@ -1,5 +1,15 @@
 import type { Bill, Roommate, Settings } from "@/types";
 
+export interface PublicBillBranding {
+  platformName: string;
+  logoUrl?: string;
+  faviconUrl?: string;
+  footerText?: string;
+  supportEmail?: string;
+  supportPhone?: string;
+  websiteUrl?: string;
+}
+
 export interface SharePayload {
   bill: Bill;
   roommates: Pick<Roommate, "id" | "name" | "room" | "initials" | "color">[];
@@ -7,6 +17,9 @@ export interface SharePayload {
   address: string;
   globalMessageTitle?: string;
   globalMessage?: string;
+  roundUpAmounts?: boolean;
+  currency?: string;
+  branding?: PublicBillBranding;
 }
 
 function toBase64Url(str: string): string {
@@ -27,7 +40,8 @@ function fromBase64Url(encoded: string): string {
 export function encodeSharePayload(
   bill: Bill,
   roommates: Roommate[],
-  settings: Pick<Settings, "houseName" | "address" | "globalMessageTitle" | "globalMessage">
+  settings: Pick<Settings, "houseName" | "address" | "globalMessageTitle" | "globalMessage" | "roundUpAmounts" | "currency">,
+  branding?: PublicBillBranding
 ): string {
   const relevant = roommates
     .filter((r) => bill.selectedRoommateIds.includes(r.id))
@@ -46,6 +60,9 @@ export function encodeSharePayload(
     address: settings.address,
     globalMessageTitle: settings.globalMessageTitle,
     globalMessage: settings.globalMessage,
+    roundUpAmounts: settings.roundUpAmounts ?? false,
+    currency: settings.currency ?? "USD",
+    branding,
   };
 
   return toBase64Url(JSON.stringify(payload));
@@ -62,9 +79,19 @@ export function decodeSharePayload(encoded: string): SharePayload | null {
   }
 }
 
+export function getAppOrigin(): string {
+  if (typeof window === "undefined") return "https://rent.otipu.com";
+  const { origin, pathname } = window.location;
+  const dir = pathname.replace(/\/[^/]*$/, "").replace(/\/$/, "");
+  return `${origin}${dir}`;
+}
+
 export function buildShareUrl(encoded: string): string {
-  const base = window.location.href.split("#")[0].split("?")[0];
-  return `${base}#/share/${encoded}`;
+  return `${getAppOrigin()}/#/share/${encoded}`;
+}
+
+export function buildShareUrlFromToken(token: string): string {
+  return `${getAppOrigin()}/s/${encodeURIComponent(token)}`;
 }
 
 export function parseHashRoute(): {
@@ -108,11 +135,10 @@ export function parseHashRoute(): {
   return { page, shareData: null, shareToken: null, billId: null, adminSection: "dashboard" };
 }
 
-export function buildShareUrlFromToken(token: string): string {
-  const base = typeof window !== "undefined"
-    ? window.location.href.split("#")[0].split("?")[0]
-    : "https://rent.otipu.com";
-  return `${base}#/s/${token}`;
+export function parsePathShareToken(): string | null {
+  if (typeof window === "undefined") return null;
+  const match = window.location.pathname.match(/\/s\/([a-zA-Z0-9]{4,32})\/?$/);
+  return match?.[1] ?? null;
 }
 
 export function setAdminRoute(section: string) {

@@ -1,6 +1,5 @@
 import { useMemo, type ReactNode } from "react";
 import {
-  Home,
   Printer,
   CheckCircle2,
   Clock,
@@ -18,10 +17,22 @@ import { BillAnnouncements } from "@/components/BillAnnouncements";
 import { CollectionSummaryCard } from "@/components/CollectionSummaryCard";
 import { MemberCalculationPanel } from "@/components/MemberCalculationPanel";
 import {
+  PublicBillBrandHeader,
+  PublicBillFooter,
+  resolvePublicBranding,
+  usePublicBillMeta,
+} from "@/components/PublicBillBranding";
+import {
+  buildShareUrlFromToken,
+  getAppOrigin,
+  parseHashRoute,
+  parsePathShareToken,
+} from "@/lib/share";
+import {
   buildMemberCalculationSteps,
   buildMemberShareBreakdown,
   calcCollectionSummary,
-  formatCurrencyDetailed,
+  formatAmount,
   formatParkingShareLabel,
   formatSharedByLabel,
   getActiveParkingAssignments,
@@ -53,6 +64,9 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
   const address = sharedPayload?.address ?? settings.address;
   const globalMessageTitle = sharedPayload?.globalMessageTitle ?? settings.globalMessageTitle;
   const globalMessage = sharedPayload?.globalMessage ?? settings.globalMessage;
+  const roundUp = sharedPayload?.roundUpAmounts ?? settings.roundUpAmounts ?? false;
+  const currency = sharedPayload?.currency ?? settings.currency ?? "USD";
+  const branding = resolvePublicBranding(sharedPayload?.branding);
 
   const billRoommates = useMemo(() => {
     if (sharedPayload) {
@@ -74,7 +88,6 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
 
   const roommateRows = useMemo(() => {
     if (!bill) return [];
-    const roundUp = settings.roundUpAmounts ?? false;
     const shares = normalizeBillShares(bill, roundUp);
     return shares.map((rs) => {
       const roommate = sharedPayload
@@ -98,7 +111,7 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
         rs.paid,
         roundUp
       );
-      const amountDue = getMemberAmountDue(rs);
+      const amountDue = getMemberAmountDue(rs, roundUp);
       return {
         roommateId: rs.roommateId,
         name: roommate?.name ?? "Unknown",
@@ -113,9 +126,9 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
         calcLines,
       };
     });
-  }, [bill, billRoommates, roommates, sharedPayload, settings.roundUpAmounts]);
+  }, [bill, billRoommates, roommates, sharedPayload, roundUp]);
 
-  const collectionSummary = bill ? calcCollectionSummary(bill) : null;
+  const collectionSummary = bill ? calcCollectionSummary(bill, undefined, roundUp) : null;
   const totalToCollect = collectionSummary?.totalToCollect ?? 0;
   const totalCollected = collectionSummary?.totalPaid ?? 0;
   const paidCount = roommateRows.filter((r) => r.status === "Paid").length;
@@ -142,6 +155,19 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
       ? roommateRows.reduce((s, r) => s + r.share, 0) / roommateRows.length
       : 0;
 
+  const shareToken = parseHashRoute().shareToken ?? parsePathShareToken();
+  const billTitle = bill?.title?.trim() || (bill ? `${bill.month} Bill` : undefined);
+  const shareMeta = bill && billTitle
+    ? {
+        title: billTitle,
+        description: `${bill.houseName || houseName} · ${bill.month} · ${formatAmount(totalToCollect, roundUp)} total · ${roommateCount} ${roommateCount === 1 ? "roommate" : "roommates"}`,
+        url: shareToken ? buildShareUrlFromToken(shareToken) : undefined,
+        imageUrl: branding.logoUrl || `${getAppOrigin()}/og-share.svg`,
+      }
+    : undefined;
+
+  usePublicBillMeta(branding, shareMeta);
+
   if (!bill) {
     return (
       <div
@@ -158,6 +184,15 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
         <p style={{ color: "#64748B", fontSize: "13px", marginTop: 8, textAlign: "center" }}>
           This shared bill link may be expired or the bill hasn't been created yet.
         </p>
+        <a
+          href={branding.websiteUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-4 no-underline"
+          style={{ color: "#4F46E5", fontSize: "12px", fontWeight: 600 }}
+        >
+          Visit {branding.platformName}
+        </a>
         {onBack && (
           <button
             onClick={onBack}
@@ -187,40 +222,12 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
       className="min-h-screen"
       style={{ background: "linear-gradient(160deg, #F0F4FF 0%, #F8FAFC 60%, #FDF4FF 100%)", fontFamily: "'Inter', sans-serif" }}
     >
-      <div
-        className="no-print sticky top-0 z-10"
-        style={{
-          background: "rgba(255,255,255,0.92)",
-          backdropFilter: "blur(16px)",
-          borderBottom: "1px solid rgba(79,70,229,0.12)",
-          boxShadow: "0 1px 12px rgba(79,70,229,0.06)",
-        }}
-      >
-        <div className="max-w-3xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            {onBack && (
-              <button
-                onClick={onBack}
-                className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 active:scale-95"
-                style={{ background: "#F1F5F9", color: "#64748B" }}
-              >
-                <ChevronLeft size={15} />
-              </button>
-            )}
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-              style={{ background: "linear-gradient(135deg, #4F46E5, #7C3AED)" }}
-            >
-              <Home size={14} className="text-white" />
-            </div>
-            <div className="min-w-0">
-              <div className="truncate" style={{ fontWeight: 800, color: "#0F0D2A", fontSize: "14px" }}>
-                rent.otipu.com
-              </div>
-              <div style={{ color: "#64748B", fontSize: "10px" }}>Shared Bill</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+      <PublicBillBrandHeader
+        branding={branding}
+        subtitle={`Shared Bill · ${displayHouseName}`}
+        onBack={onBack}
+        actions={
+          <>
             <span className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-lg" style={{ background: "#ECFDF5", color: "#059669", fontSize: "10px", fontWeight: 600 }}>
               <Shield size={11} />
               Verified
@@ -234,9 +241,9 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
               <Printer size={12} />
               Print
             </button>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <div className="max-w-3xl mx-auto px-4 py-4 space-y-4">
         {/* Bill header card */}
@@ -320,7 +327,7 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
           variant="public"
         />
 
-        {collectionSummary && <CollectionSummaryCard summary={collectionSummary} variant="public" />}
+        {collectionSummary && <CollectionSummaryCard summary={collectionSummary} variant="public" roundUp={roundUp} />}
 
         {/* How it's calculated */}
         {rentCalc && (
@@ -347,13 +354,13 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
                     <strong>${rentCalc.totalParkingFees.toLocaleString()}</strong> ={" "}
                     <strong>${rentCalc.rentPool.toLocaleString()}</strong> shared pool, divided by{" "}
                     <strong>{roommateCount}</strong> members ={" "}
-                    <strong style={{ color: "#4F46E5" }}>{formatCurrencyDetailed(rentPerPerson)}</strong> each
+                    <strong style={{ color: "#4F46E5" }}>{formatAmount(rentPerPerson, roundUp)}</strong> each
                   </p>
                 ) : (
                   <p style={{ color: "#64748B", fontSize: "12px", lineHeight: 1.6 }}>
                     Base rent <strong>${bill.rent.toLocaleString()}</strong> divided by{" "}
                     <strong>{roommateCount}</strong> members ={" "}
-                    <strong style={{ color: "#4F46E5" }}>{formatCurrencyDetailed(rentPerPerson)}</strong> each
+                    <strong style={{ color: "#4F46E5" }}>{formatAmount(rentPerPerson, roundUp)}</strong> each
                   </p>
                 )}
               </div>
@@ -376,7 +383,7 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
                           <span style={{ color: "#64748B" }}>
                             {e.name} (${e.amount}) — {sharedLabel}
                           </span>
-                          <span style={{ color: "#0891B2", fontWeight: 600 }}>{formatCurrencyDetailed(perPerson)}/ea</span>
+                          <span style={{ color: "#0891B2", fontWeight: 600 }}>{formatAmount(perPerson, roundUp)}/ea</span>
                         </div>
                       );
                     })}
@@ -414,7 +421,7 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
                               )}
                             </div>
                             <span style={{ color: "#059669", fontWeight: 700, fontSize: "13px" }}>
-                              {a.shareSpace ? `${formatCurrencyDetailed(perPerson)}/ea` : formatCurrencyDetailed(a.monthlyFee)}
+                              {a.shareSpace ? `${formatAmount(perPerson, roundUp)}/ea` : formatAmount(a.monthlyFee, roundUp)}
                             </span>
                           </div>
                         </div>
@@ -514,20 +521,21 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
           >
             <h3 style={{ color: "#1E1B4B", fontWeight: 700, fontSize: "14px", marginBottom: 4 }}>Each Share</h3>
             <div style={{ color: "#4F46E5", fontWeight: 900, fontSize: "36px", letterSpacing: "-1px" }}>
-              {formatCurrencyDetailed(avgShare)}
+              {formatAmount(avgShare, roundUp)}
             </div>
             <div style={{ color: "#6366F1", fontSize: "12px", marginBottom: 12 }}>average amount per roommate</div>
             <div className="space-y-1.5 pt-3" style={{ borderTop: "1px solid rgba(79,70,229,0.15)" }}>
               <div className="flex justify-between">
                 <span style={{ color: "#6366F1", fontSize: "11px" }}>Rent share (each)</span>
-                <span style={{ color: "#4F46E5", fontSize: "11px", fontWeight: 600 }}>{formatCurrencyDetailed(rentPerPerson)}</span>
+                <span style={{ color: "#4F46E5", fontSize: "11px", fontWeight: 600 }}>{formatAmount(rentPerPerson, roundUp)}</span>
               </div>
               {roommateRows[0] && roommateRows[0].calc.expenseShare > 0 && (
                 <div className="flex justify-between">
                   <span style={{ color: "#6366F1", fontSize: "11px" }}>Avg. expenses</span>
                   <span style={{ color: "#4F46E5", fontSize: "11px", fontWeight: 600 }}>
-                    {formatCurrencyDetailed(
-                      roommateRows.reduce((s, r) => s + r.calc.expenseShare, 0) / roommateRows.length
+                    {formatAmount(
+                      roommateRows.reduce((s, r) => s + r.calc.expenseShare, 0) / roommateRows.length,
+                      roundUp
                     )}
                   </span>
                 </div>
@@ -577,7 +585,7 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
                     <div className="text-right flex-shrink-0">
                       <div style={{ fontSize: "10px", color: "#64748B", fontWeight: 600 }}>OWES</div>
                       <div style={{ color: r.color, fontWeight: 800, fontSize: "18px", letterSpacing: "-0.3px" }}>
-                        {formatCurrencyDetailed(r.amountDue)}
+                        {formatAmount(r.amountDue, roundUp)}
                       </div>
                       <div className="flex items-center gap-1 justify-end mt-0.5">
                         {sc.icon}
@@ -587,21 +595,21 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
                   </div>
                   <div className="px-3.5 py-2 flex flex-wrap gap-2" style={{ background: "white", borderTop: `1px solid ${r.color}18` }}>
                     <span className="px-2 py-0.5 rounded-md" style={{ fontSize: "10px", background: "#EEF2FF", color: "#4F46E5" }}>
-                      Rent {formatCurrencyDetailed(r.calc.rentShare)}
+                      Rent {formatAmount(r.calc.rentShare, roundUp)}
                     </span>
                     {r.calc.expenseShare > 0 && (
                       <span className="px-2 py-0.5 rounded-md" style={{ fontSize: "10px", background: "#ECFEFF", color: "#0891B2" }}>
-                        Expenses {formatCurrencyDetailed(r.calc.expenseShare)}
+                        Expenses {formatAmount(r.calc.expenseShare, roundUp)}
                       </span>
                     )}
                     {r.calc.parkingShare > 0 && (
                       <span className="px-2 py-0.5 rounded-md" style={{ fontSize: "10px", background: "#ECFDF5", color: "#059669" }}>
-                        Parking {formatCurrencyDetailed(r.calc.parkingShare)}
+                        Parking {formatAmount(r.calc.parkingShare, roundUp)}
                       </span>
                     )}
                   </div>
                   <div className="px-3.5 pb-3">
-                    <MemberCalculationPanel lines={r.calcLines} roundUp={settings.roundUpAmounts ?? false} accentColor={r.color} />
+                    <MemberCalculationPanel lines={r.calcLines} roundUp={roundUp} accentColor={r.color} />
                   </div>
                 </div>
               );
@@ -609,24 +617,11 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="text-center py-4 space-y-1.5">
-          <div className="flex items-center justify-center gap-2.5 mb-3">
-            <div
-              className="w-7 h-7 rounded-xl flex items-center justify-center"
-              style={{ background: "linear-gradient(135deg, #4F46E5, #7C3AED)" }}
-            >
-              <Home size={13} className="text-white" />
-            </div>
-            <span style={{ fontWeight: 800, color: "#4F46E5", fontSize: "15px" }}>rent.otipu.com</span>
-          </div>
-          <p style={{ color: "#94A3B8", fontSize: "11px" }}>
-            This bill was generated on {bill.createdAt} · Valid until {validUntil}
-          </p>
-          <p style={{ color: "#CBD5E1", fontSize: "10px" }}>
-            otipu.com · All amounts in {settings.currency}
-          </p>
-        </div>
+        <PublicBillFooter
+          branding={branding}
+          currency={currency}
+          billMeta={{ createdAt: bill.createdAt, validUntil }}
+        />
       </div>
     </div>
   );
