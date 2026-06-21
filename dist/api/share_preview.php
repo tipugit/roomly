@@ -35,6 +35,20 @@ function is_social_crawler(): bool
     return false;
 }
 
+function normalize_website_url(string $url, string $fallback = ''): string
+{
+    $raw = trim($url);
+    if ($raw === '') {
+        $raw = $fallback !== '' ? $fallback : site_origin();
+    }
+    $raw = trim(explode('#', $raw)[0]);
+    $raw = trim(explode('?', $raw)[0]);
+    if (!preg_match('#^https?://#i', $raw)) {
+        $raw = 'https://' . ltrim($raw, '/');
+    }
+    return rtrim($raw, '/');
+}
+
 function site_label_from_url(string $url): string
 {
     $host = parse_url($url, PHP_URL_HOST);
@@ -71,7 +85,7 @@ function share_page_url(string $token): string
 function share_og_image_url(string $token, string $logoUrl = ''): string
 {
     if ($logoUrl !== '' && preg_match('/\.(png|jpe?g|webp)(\?|#|$)/i', $logoUrl)) {
-        return $logoUrl;
+        return normalize_website_url($logoUrl);
     }
     return site_origin() . '/api/og.php?token=' . rawurlencode($token);
 }
@@ -168,19 +182,14 @@ function share_preview_for_token(PDO $db, string $token): ?array
     $total = share_preview_total($bill);
     $totalLabel = format_share_money($total, $currency);
 
-    $websiteUrl = trim((string) ($branding['websiteUrl'] ?? ''));
-    if ($websiteUrl === '') {
-        $websiteUrl = site_origin();
-    }
+    $websiteUrl = site_origin();
     $siteLabel = site_label_from_url(site_origin());
 
     $description = sprintf(
-        '%s · %s · %s total · %d %s · %s',
+        '%s · %s · %s total · %s',
         $houseName,
         $bill['month'],
         $totalLabel,
-        $memberCount,
-        $memberCount === 1 ? 'roommate' : 'roommates',
         $siteLabel
     );
 
@@ -225,7 +234,6 @@ function respond_share_page(PDO $db, string $token): void
 
     header('Content-Type: text/html; charset=utf-8');
     header('Cache-Control: public, max-age=300');
-    $autoRedirect = !is_social_crawler();
     ?>
 <!doctype html>
 <html lang="en">
@@ -244,25 +252,23 @@ function respond_share_page(PDO $db, string $token): void
   <meta property="og:image" content="<?= h($preview['imageUrl']) ?>" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
-  <meta property="og:image:alt" content="<?= h($preview['title'] . ' — ' . $preview['houseName']) ?>" />
 
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="<?= h($preview['title']) ?>" />
   <meta name="twitter:description" content="<?= h($preview['description']) ?>" />
   <meta name="twitter:image" content="<?= h($preview['imageUrl']) ?>" />
-
-  <meta name="theme-color" content="#4F46E5" />
-<?php if ($autoRedirect): ?>
-  <script>window.location.replace(<?= json_encode($preview['appUrl'], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>);</script>
-<?php endif; ?>
 </head>
-<body>
-  <main>
-    <h1><?= h($preview['title']) ?></h1>
-    <p><?= h($preview['description']) ?></p>
-    <p><a href="<?= h($preview['appUrl']) ?>">View bill on <?= h($preview['platformName']) ?></a></p>
-    <p><a href="<?= h($preview['websiteUrl']) ?>"><?= h($preview['siteLabel']) ?></a></p>
-  </main>
+<body style="margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(160deg,#F0F4FF,#F8FAFC);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px">
+  <div style="max-width:420px;width:100%;background:#fff;border-radius:20px;padding:28px 24px;text-align:center;box-shadow:0 12px 40px rgba(79,70,229,0.12);border:1px solid rgba(79,70,229,0.1)">
+    <div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#4F46E5,#7C3AED);margin:0 auto 16px"></div>
+    <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#4F46E5"><?= h($preview['platformName']) ?></p>
+    <h1 style="margin:0 0 10px;font-size:22px;font-weight:800;color:#0F0D2A;letter-spacing:-0.3px"><?= h($preview['title']) ?></h1>
+    <p style="margin:0 0 20px;font-size:13px;color:#64748B;line-height:1.5"><?= h($preview['description']) ?></p>
+    <a href="<?= h($preview['appUrl']) ?>" style="display:inline-block;padding:12px 22px;border-radius:12px;background:linear-gradient(135deg,#4F46E5,#7C3AED);color:#fff;font-weight:700;font-size:14px;text-decoration:none">View shared bill</a>
+    <p style="margin:20px 0 0;font-size:12px;color:#94A3B8">
+      <a href="<?= h($preview['websiteUrl']) ?>" style="color:#4F46E5;font-weight:600;text-decoration:none"><?= h($preview['siteLabel']) ?></a>
+    </p>
+  </div>
 </body>
 </html>
 <?php

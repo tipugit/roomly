@@ -162,7 +162,7 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
   const shareMeta = bill && billTitle
     ? {
         title: billTitle,
-        description: `${bill.houseName || houseName} · ${bill.month} · ${formatAmount(totalToCollect, roundUp)} total · ${roommateCount} ${roommateCount === 1 ? "roommate" : "roommates"} · ${siteLabelFromUrl(getAppOrigin())}`,
+        description: `${bill.houseName || houseName} · ${bill.month} · ${formatAmount(totalToCollect, roundUp)} total · ${siteLabelFromUrl(getAppOrigin())}`,
         url: shareToken ? buildShareUrlFromToken(shareToken) : undefined,
         imageUrl:
           branding.logoUrl?.match(/\.(png|jpe?g|webp)/i)

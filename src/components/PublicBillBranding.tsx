@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { Home, Mail, Phone, Users, Receipt, Share2, ArrowRight, Sparkles } from "lucide-react";
 import type { PublicBillBranding } from "@/lib/share";
+import { getAppOrigin } from "@/lib/share";
 
 const DEFAULT_BRANDING: PublicBillBranding = {
   platformName: "Roomly",
@@ -13,11 +14,14 @@ const DEFAULT_BRANDING: PublicBillBranding = {
 };
 
 export function resolvePublicBranding(raw?: Partial<PublicBillBranding> | null): PublicBillBranding {
+  const appHome =
+    typeof window !== "undefined" ? getAppOrigin() : DEFAULT_BRANDING.websiteUrl!;
+  const homeUrl = appHome;
   return {
     ...DEFAULT_BRANDING,
     ...raw,
     platformName: raw?.platformName?.trim() || DEFAULT_BRANDING.platformName,
-    websiteUrl: raw?.websiteUrl?.trim() || DEFAULT_BRANDING.websiteUrl,
+    websiteUrl: homeUrl,
     footerText: raw?.footerText?.trim() || DEFAULT_BRANDING.footerText,
   };
 }

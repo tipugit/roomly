@@ -107,7 +107,7 @@ function platform_features(PDO $db): array
 
 function platform_branding(PDO $db): array
 {
-    return get_platform_setting($db, 'branding', [
+    $branding = get_platform_setting($db, 'branding', [
         'platformName' => 'Roomly',
         'logoUrl' => '',
         'faviconUrl' => '',
@@ -117,6 +117,19 @@ function platform_branding(PDO $db): array
         'supportPhone' => '',
         'websiteUrl' => 'https://rent.otipu.com',
     ]);
+
+    if (!empty($branding['websiteUrl'])) {
+        $url = trim((string) $branding['websiteUrl']);
+        $url = trim(explode('#', $url)[0]);
+        if (!preg_match('#^https?://#i', $url)) {
+            $url = 'https://' . ltrim($url, '/');
+        }
+        $branding['websiteUrl'] = rtrim($url, '/');
+    } else {
+        $branding['websiteUrl'] = 'https://rent.otipu.com';
+    }
+
+    return $branding;
 }
 
 function platform_global_settings(PDO $db): array

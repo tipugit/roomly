@@ -81,9 +81,18 @@ export function decodeSharePayload(encoded: string): SharePayload | null {
 
 export function getAppOrigin(): string {
   if (typeof window === "undefined") return "https://rent.otipu.com";
-  const { origin, pathname } = window.location;
-  const dir = pathname.replace(/\/[^/]*$/, "").replace(/\/$/, "");
-  return `${origin}${dir}`;
+  return window.location.origin;
+}
+
+/** Ensure admin-entered URLs are absolute and safe for href/src. */
+export function normalizeWebsiteUrl(url?: string, fallback = "https://rent.otipu.com"): string {
+  let raw = (url ?? "").trim();
+  if (!raw) raw = fallback;
+  raw = raw.split("#")[0].split("?")[0].trim();
+  if (!/^https?:\/\//i.test(raw)) {
+    raw = `https://${raw.replace(/^\/+/, "")}`;
+  }
+  return raw.replace(/\/$/, "");
 }
 
 export function buildShareUrl(encoded: string): string {
