@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from "react";
-import { Home, Mail, Phone, ExternalLink } from "lucide-react";
+import { Home, Mail, Phone, Users, Receipt, Share2, ArrowRight, Sparkles } from "lucide-react";
 import type { PublicBillBranding } from "@/lib/share";
 
 const DEFAULT_BRANDING: PublicBillBranding = {
@@ -197,6 +197,13 @@ function hostnameFromUrl(url: string): string {
   }
 }
 
+export function siteLabelFromUrl(url: string): string {
+  const host = hostnameFromUrl(url);
+  const parts = host.split(".");
+  if (parts[0]) parts[0] = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+  return parts.join(".");
+}
+
 export function PublicBillFooter({
   branding: raw,
   billMeta,
@@ -270,18 +277,118 @@ export function PublicBillFooter({
 
       <div className="flex flex-wrap items-center justify-center gap-2" style={{ fontSize: "11px", color: "#CBD5E1" }}>
         <span>All amounts in {currency}</span>
-        <span>·</span>
-        <a
-          href={homeUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 no-underline"
-          style={{ color: "#94A3B8" }}
-        >
-          Visit {hostnameFromUrl(homeUrl)}
-          <ExternalLink size={10} />
-        </a>
       </div>
+
+      <a
+        href={homeUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-block no-underline group"
+        style={{ marginTop: 4 }}
+      >
+        <span
+          className="group-hover:underline"
+          style={{
+            color: "#4F46E5",
+            fontSize: "13px",
+            fontWeight: 700,
+            letterSpacing: "0.02em",
+          }}
+        >
+          {siteLabelFromUrl(homeUrl)}
+        </span>
+      </a>
     </footer>
+  );
+}
+
+export function PublicBillPromo({ branding: raw }: { branding: PublicBillBranding }) {
+  const branding = resolvePublicBranding(raw);
+  const homeUrl = branding.websiteUrl || DEFAULT_BRANDING.websiteUrl!;
+  const siteLabel = siteLabelFromUrl(homeUrl);
+
+  const perks = [
+    { icon: Users, label: "Roommate management" },
+    { icon: Receipt, label: "Rent & bill splitting" },
+    { icon: Share2, label: "Shareable bill links" },
+  ];
+
+  return (
+    <section className="no-print px-4 pb-2" aria-label="Product promotion">
+      <div
+        className="max-w-3xl mx-auto rounded-2xl overflow-hidden"
+        style={{
+          background: "linear-gradient(135deg, #4F46E5 0%, #6D28D9 55%, #7C3AED 100%)",
+          boxShadow: "0 12px 40px rgba(79,70,229,0.28)",
+        }}
+      >
+        <div className="p-5 sm:p-6">
+          <div className="flex items-start gap-4">
+            <div
+              className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.22)" }}
+            >
+              <Sparkles size={20} className="text-white" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p
+                className="uppercase tracking-widest mb-1"
+                style={{ color: "rgba(255,255,255,0.72)", fontSize: "10px", fontWeight: 700 }}
+              >
+                Powered by {branding.platformName}
+              </p>
+              <h2
+                className="text-white"
+                style={{ fontSize: "18px", fontWeight: 800, letterSpacing: "-0.35px", lineHeight: 1.25 }}
+              >
+                Complete roommate & rental management
+              </h2>
+              <p className="mt-2" style={{ color: "rgba(255,255,255,0.82)", fontSize: "13px", lineHeight: 1.5 }}>
+                Split rent, track utilities, manage roommates, and collect payments — without spreadsheets or awkward group chats.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-4">
+            {perks.map(({ icon: Icon, label }) => (
+              <div
+                key={label}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl"
+                style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.14)" }}
+              >
+                <Icon size={14} className="text-white flex-shrink-0" />
+                <span style={{ color: "white", fontSize: "11px", fontWeight: 600 }}>{label}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-5 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.16)" }}>
+            <a
+              href={homeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold no-underline active:scale-[0.98] transition-transform"
+              style={{ background: "white", color: "#4F46E5", fontSize: "13px" }}
+            >
+              Try {branding.platformName} free
+              <ArrowRight size={15} />
+            </a>
+            <a
+              href={homeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-center sm:text-right no-underline group"
+            >
+              <span
+                className="group-hover:underline"
+                style={{ color: "rgba(255,255,255,0.92)", fontSize: "14px", fontWeight: 700, letterSpacing: "0.02em" }}
+              >
+                {siteLabel}
+              </span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }

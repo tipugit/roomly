@@ -19,7 +19,9 @@ import { MemberCalculationPanel } from "@/components/MemberCalculationPanel";
 import {
   PublicBillBrandHeader,
   PublicBillFooter,
+  PublicBillPromo,
   resolvePublicBranding,
+  siteLabelFromUrl,
   usePublicBillMeta,
 } from "@/components/PublicBillBranding";
 import {
@@ -160,7 +162,7 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
   const shareMeta = bill && billTitle
     ? {
         title: billTitle,
-        description: `${bill.houseName || houseName} · ${bill.month} · ${formatAmount(totalToCollect, roundUp)} total · ${roommateCount} ${roommateCount === 1 ? "roommate" : "roommates"}`,
+        description: `${bill.houseName || houseName} · ${bill.month} · ${formatAmount(totalToCollect, roundUp)} total · ${roommateCount} ${roommateCount === 1 ? "roommate" : "roommates"} · ${siteLabelFromUrl(branding.websiteUrl || "https://rent.otipu.com")}`,
         url: shareToken ? buildShareUrlFromToken(shareToken) : undefined,
         imageUrl: branding.logoUrl || `${getAppOrigin()}/og-share.svg`,
       }
@@ -616,6 +618,8 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
             })}
           </div>
         </div>
+
+        <PublicBillPromo branding={branding} />
 
         <PublicBillFooter
           branding={branding}

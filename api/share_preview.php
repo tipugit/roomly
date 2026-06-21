@@ -32,6 +32,21 @@ function is_social_crawler(): bool
     return false;
 }
 
+function site_label_from_url(string $url): string
+{
+    $host = parse_url($url, PHP_URL_HOST);
+    if (!is_string($host) || $host === '') {
+        $host = preg_replace('#^https?://#', '', $url);
+        $host = explode('/', $host)[0];
+    }
+    $host = preg_replace('/^www\./', '', $host);
+    $parts = explode('.', $host);
+    if (isset($parts[0]) && $parts[0] !== '') {
+        $parts[0] = ucfirst($parts[0]);
+    }
+    return implode('.', $parts);
+}
+
 function site_origin(): string
 {
     $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
@@ -142,20 +157,21 @@ function share_preview_for_token(PDO $db, string $token): ?array
     $total = share_preview_total($bill);
     $totalLabel = format_share_money($total, $currency);
 
+    $websiteUrl = trim((string) ($branding['websiteUrl'] ?? ''));
+    if ($websiteUrl === '') {
+        $websiteUrl = site_origin();
+    }
+    $siteLabel = site_label_from_url($websiteUrl);
+
     $description = sprintf(
-        '%s · %s · %s total · %d %s · Open on %s',
+        '%s · %s · %s total · %d %s · %s',
         $houseName,
         $bill['month'],
         $totalLabel,
         $memberCount,
         $memberCount === 1 ? 'roommate' : 'roommates',
-        $platformName
+        $siteLabel
     );
-
-    $websiteUrl = trim((string) ($branding['websiteUrl'] ?? ''));
-    if ($websiteUrl === '') {
-        $websiteUrl = request_origin();
-    }
 
     $logoUrl = trim((string) ($branding['logoUrl'] ?? ''));
     $imageUrl = $logoUrl !== '' ? $logoUrl : (site_origin() . '/og-share.svg');
@@ -175,6 +191,7 @@ function share_preview_for_token(PDO $db, string $token): ?array
         'canonicalUrl' => share_page_url($token),
         'appUrl' => site_origin() . '/#/s/' . rawurlencode($token),
         'websiteUrl' => $websiteUrl,
+        'siteLabel' => $siteLabel,
     ];
 }
 
@@ -232,6 +249,7 @@ function respond_share_page(PDO $db, string $token): void
     <h1><?= h($preview['title']) ?></h1>
     <p><?= h($preview['description']) ?></p>
     <p><a href="<?= h($preview['appUrl']) ?>">View bill on <?= h($preview['platformName']) ?></a></p>
+    <p><a href="<?= h($preview['websiteUrl']) ?>"><?= h($preview['siteLabel']) ?></a></p>
   </main>
 </body>
 </html>

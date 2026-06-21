@@ -10,5 +10,5 @@
   <path d="M120 156 L120 108 C120 92 132 80 148 80 L172 80 C188 80 200 92 200 108 L200 156 L232 156 C248 156 260 168 260 184 L260 232 C260 248 248 260 232 260 L88 260 C72 260 60 248 60 232 L60 184 C60 168 72 156 88 156 Z" fill="white" transform="translate(12,-8)"/>
   <text x="200" y="210" fill="white" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="72" font-weight="800">Roomly</text>
   <text x="200" y="290" fill="rgba(255,255,255,0.88)" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="40" font-weight="600">Shared household bill</text>
-  <text x="200" y="520" fill="rgba(255,255,255,0.72)" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="28">rent.otipu.com</text>
+  <text x="600" y="560" fill="rgba(255,255,255,0.9)" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="32" font-weight="700" text-anchor="middle">Rent.otipu.com</text>
 </svg>
