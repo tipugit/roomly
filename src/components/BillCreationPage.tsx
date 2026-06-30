@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { ExpenseMemberSelector } from "@/components/ExpenseMemberSelector";
-import type { DefaultBillExpense, Expense, Settings } from "@/types";
+import type { DefaultBillExpense, Expense, ParkingAssignment, Settings } from "@/types";
 import { formatMonthYear, isRoommateEligibleForBill } from "@/lib/memberDates";
 import { MemberCalculationPanel } from "@/components/MemberCalculationPanel";
 import {
@@ -43,6 +43,17 @@ interface FormExpense {
   category: string;
   shareMode: "all" | "selected";
   sharedBy: number[];
+}
+
+function cloneParkingAssignments(assignments: ParkingAssignment[] = []): ParkingAssignment[] {
+  return assignments.map((a) => ({
+    spotName: a.spotName,
+    roommateId: a.roommateId ?? null,
+    monthlyFee: a.monthlyFee,
+    active: a.active,
+    shareSpace: a.shareSpace ?? false,
+    sharedBy: [...(a.sharedBy ?? [])],
+  }));
 }
 
 function buildMonthOptions(): string[] {
@@ -144,6 +155,9 @@ export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) 
   const [rent, setRent] = useState(() => String(settings.defaultRent ?? 3000));
   const [expenses, setExpenses] = useState<FormExpense[]>(() => buildExpensesFromSettings(settings));
   const [includeParking, setIncludeParking] = useState(true);
+  const [parkingAssignments, setParkingAssignments] = useState<ParkingAssignment[]>(() =>
+    cloneParkingAssignments(buildParkingSnapshotFromSettings(settings)?.assignments ?? [])
+  );
   const [selected, setSelected] = useState<number[]>(() =>
     roommates.filter((r) => r.status === "Active").map((r) => r.id)
   );
@@ -184,6 +198,12 @@ export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) 
       }
       return next;
     });
+  };
+
+  const updateParkingAssignment = (index: number, patch: Partial<ParkingAssignment>) => {
+    setParkingAssignments((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, ...patch } : item))
+    );
   };
 
   const billMonth = isExtraBill ? `Extra Bill — ${extraBillMonth}` : month;
@@ -239,12 +259,46 @@ export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) 
     setAnnouncementTitle(editingBill.announcementTitle ?? "");
     setAnnouncementMessage(editingBill.announcementMessage ?? "");
     setIncludeParking(!!editingBill.parkingSnapshot?.assignments?.length);
+    setParkingAssignments(
+      cloneParkingAssignments(
+        editingBill.parkingSnapshot?.assignments ??
+          buildParkingSnapshotFromSettings(settings)?.assignments ??
+          []
+      )
+    );
     setEditingBill(null);
-  }, [editingBill, setEditingBill]);
+  }, [editingBill, setEditingBill, settings]);
+
+  useEffect(() => {
+    if (editingBillId) return;
+    setParkingAssignments(cloneParkingAssignments(buildParkingSnapshotFromSettings(settings)?.assignments ?? []));
+  }, [settings, editingBillId]);
+
+  useEffect(() => {
+    setParkingAssignments((prev) =>
+      prev.map((assignment) => {
+        const roommateId = assignment.roommateId && selected.includes(assignment.roommateId)
+          ? assignment.roommateId
+          : null;
+        const sharedBy = (assignment.sharedBy ?? []).filter((id) => selected.includes(id));
+        return {
+          ...assignment,
+          roommateId,
+          sharedBy: assignment.shareSpace ? sharedBy : [],
+        };
+      })
+    );
+  }, [selected]);
 
   const rentNum = parseFloat(rent) || 0;
   const extraTotal = expenses.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
-  const parkingSnapshot = includeParking ? buildParkingSnapshotFromSettings(settings) : null;
+  const parkingSnapshot = includeParking
+    ? {
+        totalSpots: parkingAssignments.length,
+        parkingIncludedInRent: settings.parkingIncludedInRent ?? false,
+        assignments: cloneParkingAssignments(parkingAssignments),
+      }
+    : null;
 
   const parsedExpenses: Expense[] = expenses.map((e) => ({
     id: e.id,
@@ -798,11 +852,11 @@ export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) 
 
           {includeParking && parkingSnapshot && parkingSnapshot.assignments.length > 0 && (
             <SectionCard
-              title="Parking (from settings)"
-              subtitle="Current assignments will be copied into this month's bill"
+              title="Parking assignments"
+              subtitle="Edit parking for this bill without changing your saved settings"
             >
               <div className="space-y-2">
-                {parkingSnapshot.assignments.map((a) => {
+                {parkingSnapshot.assignments.map((a, idx) => {
                   const member = roommates.find((r) => r.id === a.roommateId);
                   const shareLabel = formatParkingShareLabel(a, selected, roommates);
                   const sharers = getParkingShareMemberIds(a, selected);
@@ -813,18 +867,101 @@ export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) 
                       className="p-3 rounded-xl"
                       style={{ background: "var(--muted)", border: "1px solid var(--border)" }}
                     >
-                      <div className="flex items-center justify-between">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
                         <div>
-                          <div style={{ color: "var(--foreground)", fontSize: "13px", fontWeight: 600 }}>
-                            {a.spotName}
-                          </div>
-                          <div style={{ color: "var(--muted-foreground)", fontSize: "11px" }}>
-                            {member?.name ?? "Unassigned"}
+                          <label style={{ color: "var(--muted-foreground)", fontSize: "10px", fontWeight: 600, display: "block", marginBottom: 4 }}>
+                            SPOT NAME
+                          </label>
+                          <input
+                            type="text"
+                            value={a.spotName}
+                            onChange={(e) => updateParkingAssignment(idx, { spotName: e.target.value })}
+                            className="w-full px-3 py-2 rounded-lg outline-none"
+                            style={{
+                              background: "var(--card)",
+                              border: "1px solid var(--border)",
+                              color: "var(--foreground)",
+                              fontSize: "12px",
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ color: "var(--muted-foreground)", fontSize: "10px", fontWeight: 600, display: "block", marginBottom: 4 }}>
+                            ASSIGNED TO
+                          </label>
+                          <select
+                            value={a.roommateId ?? ""}
+                            onChange={(e) =>
+                              updateParkingAssignment(idx, {
+                                roommateId: e.target.value ? parseInt(e.target.value, 10) : null,
+                              })
+                            }
+                            className="w-full px-3 py-2 rounded-lg outline-none appearance-none"
+                            style={{
+                              background: "var(--card)",
+                              border: "1px solid var(--border)",
+                              color: "var(--foreground)",
+                              fontSize: "12px",
+                            }}
+                          >
+                            <option value="">Unassigned</option>
+                            {selected.map((id) => {
+                              const roommate = roommates.find((rm) => rm.id === id);
+                              if (!roommate) return null;
+                              return (
+                                <option key={roommate.id} value={roommate.id}>
+                                  {roommate.name}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ color: "var(--muted-foreground)", fontSize: "10px", fontWeight: 600, display: "block", marginBottom: 4 }}>
+                            MONTHLY FEE
+                          </label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--muted-foreground)", fontSize: "12px" }}>$</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={a.monthlyFee}
+                              onChange={(e) =>
+                                updateParkingAssignment(idx, {
+                                  monthlyFee: parseFloat(e.target.value) || 0,
+                                })
+                              }
+                              className="w-full pl-7 pr-3 py-2 rounded-lg outline-none"
+                              style={{
+                                background: "var(--card)",
+                                border: "1px solid var(--border)",
+                                color: "var(--foreground)",
+                                fontSize: "12px",
+                                fontWeight: 600,
+                              }}
+                            />
                           </div>
                         </div>
-                        <span style={{ color: "#4F46E5", fontWeight: 700, fontSize: "13px" }}>
-                          ${a.monthlyFee}/mo
-                        </span>
+                      </div>
+                      <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
+                        <div>
+                          <div style={{ color: "var(--foreground)", fontSize: "12px", fontWeight: 600 }}>
+                            {member?.name ?? "Unassigned"}
+                          </div>
+                          <div style={{ color: "var(--muted-foreground)", fontSize: "10px" }}>
+                            {a.active ? "Included in this bill" : "Excluded from this bill"}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span style={{ color: "var(--muted-foreground)", fontSize: "11px", fontWeight: 600 }}>
+                            Active
+                          </span>
+                          <ParkingToggle
+                            on={a.active}
+                            onToggle={() => updateParkingAssignment(idx, { active: !a.active })}
+                          />
+                        </div>
                       </div>
                       {a.shareSpace && selected.length > 0 && (
                         <div className="mt-2 px-2.5 py-1.5 rounded-lg" style={{ background: "#ECFDF5" }}>
@@ -834,8 +971,65 @@ export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) 
                           <p style={{ color: "#64748B", fontSize: "10px", marginTop: 2 }}>
                             ${perPerson.toFixed(2)} per selected member
                           </p>
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {selected.map((id) => {
+                              const roommate = roommates.find((rm) => rm.id === id);
+                              if (!roommate) return null;
+                              const checked = (a.sharedBy ?? []).includes(id);
+                              return (
+                                <button
+                                  key={id}
+                                  type="button"
+                                  onClick={() =>
+                                    updateParkingAssignment(idx, {
+                                      sharedBy: checked
+                                        ? (a.sharedBy ?? []).filter((memberId) => memberId !== id)
+                                        : [...(a.sharedBy ?? []), id],
+                                    })
+                                  }
+                                  className="px-2 py-1 rounded-full"
+                                  style={{
+                                    fontSize: "10px",
+                                    fontWeight: 600,
+                                    background: checked ? "#059669" : "white",
+                                    color: checked ? "white" : "#64748B",
+                                    border: `1px solid ${checked ? "#059669" : "rgba(100,116,139,0.2)"}`,
+                                  }}
+                                >
+                                  {roommate.name.split(" ")[0]}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
                       )}
+                      {!a.shareSpace && (
+                        <p style={{ color: "var(--muted-foreground)", fontSize: "10px", marginTop: 8 }}>
+                          Exclusive spot — assigned member pays the full fee
+                        </p>
+                      )}
+                      <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateParkingAssignment(idx, {
+                              shareSpace: !a.shareSpace,
+                              sharedBy: !a.shareSpace ? selected : [],
+                            })
+                          }
+                          className="px-3 py-1.5 rounded-lg font-semibold"
+                          style={{
+                            background: a.shareSpace ? "#ECFDF5" : "#EEF2FF",
+                            color: a.shareSpace ? "#059669" : "#4F46E5",
+                            fontSize: "11px",
+                          }}
+                        >
+                          {a.shareSpace ? "Shared spot" : "Make shared"}
+                        </button>
+                        <span style={{ color: "#4F46E5", fontWeight: 700, fontSize: "13px" }}>
+                          ${a.monthlyFee}/mo
+                        </span>
+                      </div>
                     </div>
                   );
                 })}
