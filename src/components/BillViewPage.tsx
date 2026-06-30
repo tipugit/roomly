@@ -11,6 +11,7 @@ import {
   Edit2,
   Copy,
   Check,
+  Pencil,
   Trash2,
   Calendar,
 } from "lucide-react";
@@ -65,6 +66,8 @@ export function BillViewPage({ billId }: BillViewPageProps) {
 
   const [linkCopied, setLinkCopied] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [editingPaymentId, setEditingPaymentId] = useState<number | null>(null);
+  const [paymentDraft, setPaymentDraft] = useState("");
 
   useEffect(() => {
     void setActiveBillId(billId);
@@ -180,6 +183,29 @@ export function BillViewPage({ billId }: BillViewPageProps) {
     await deleteBill(bill.id);
     setDeleteOpen(false);
     navigate("expenses");
+  };
+
+  const openPaymentEditor = (roommateId: number, paid: number) => {
+    setEditingPaymentId(roommateId);
+    setPaymentDraft(paid > 0 ? String(Number(paid.toFixed(2))) : "");
+  };
+
+  const handleSavePayment = async (roommateId: number) => {
+    const raw = paymentDraft.trim();
+    const nextPaid = raw === "" ? 0 : Number(raw);
+    if (!Number.isFinite(nextPaid) || nextPaid < 0) {
+      showToast("Enter a valid payment amount", "error");
+      return;
+    }
+
+    await updatePayment(roommateId, nextPaid);
+    setEditingPaymentId(null);
+    setPaymentDraft("");
+  };
+
+  const closePaymentEditor = () => {
+    setEditingPaymentId(null);
+    setPaymentDraft("");
   };
 
   const billActions = [
@@ -344,6 +370,7 @@ export function BillViewPage({ billId }: BillViewPageProps) {
           {roommateBreakdown.map((r) => {
             const sc = payStatusStyle[r.status];
             const remaining = r.amountDue;
+            const isEditingPayment = editingPaymentId === r.roommateId;
             return (
               <div
                 key={r.roommateId}
@@ -382,28 +409,107 @@ export function BillViewPage({ billId }: BillViewPageProps) {
                 <div className="px-4 pb-4">
                   <MemberCalculationPanel lines={r.calcLines} roundUp={roundUp} accentColor={r.color} />
 
-                  {remaining > 0 && r.status !== "Paid" && (
-                    <div className="flex gap-2 mt-3">
-                      {r.status === "Pending" && (
+                  <div className="mt-3 rounded-xl p-3" style={{ background: "var(--muted)", border: "1px solid var(--border)" }}>
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <div>
+                        <div style={{ fontSize: "10px", color: "var(--muted-foreground)", fontWeight: 700, letterSpacing: "0.2px" }}>
+                          PAID THIS MONTH
+                        </div>
+                        <div style={{ fontWeight: 800, fontSize: "16px", color: "var(--foreground)", marginTop: 2 }}>
+                          {formatAmount(r.paid, roundUp)}
+                        </div>
+                      </div>
+                      {!isEditingPayment && (
                         <button
                           type="button"
-                          onClick={() => updatePayment(r.roommateId, Math.round(r.share / 2))}
-                          className="flex-1 py-2.5 rounded-xl text-xs font-semibold"
-                          style={{ background: "var(--status-warning-bg)", color: "var(--status-warning-text)", border: "1px solid var(--action-warning-border)" }}
+                          onClick={() => openPaymentEditor(r.roommateId, r.paid)}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold"
+                          style={{ background: "white", color: "var(--foreground)", border: "1px solid var(--border)" }}
                         >
-                          Mark Partial
+                          <Pencil size={13} />
+                          {r.paid > 0 ? "Edit Payment" : "Add Payment"}
                         </button>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => updatePayment(r.roommateId, r.share)}
-                        className="flex-1 py-2.5 rounded-xl text-xs font-semibold text-white"
-                        style={{ background: "linear-gradient(135deg, #10B981, #059669)" }}
-                      >
-                        Mark Paid
-                      </button>
                     </div>
-                  )}
+
+                    {isEditingPayment ? (
+                      <div className="mt-3 space-y-2">
+                        <label style={{ display: "block" }}>
+                          <span style={{ display: "block", fontSize: "11px", color: "var(--muted-foreground)", marginBottom: 6 }}>
+                            Enter how much {r.name.split(" ")[0]} paid this month
+                          </span>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            min="0"
+                            step="0.01"
+                            value={paymentDraft}
+                            onChange={(e) => setPaymentDraft(e.target.value)}
+                            placeholder="0.00"
+                            className="w-full px-3 py-2.5 rounded-xl outline-none"
+                            style={{
+                              background: "white",
+                              border: "1px solid var(--border)",
+                              fontSize: "14px",
+                              color: "var(--foreground)",
+                            }}
+                          />
+                        </label>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void handleSavePayment(r.roommateId)}
+                            className="py-2.5 rounded-xl text-xs font-semibold text-white"
+                            style={{ background: "linear-gradient(135deg, #4F46E5, #7C3AED)" }}
+                          >
+                            Save Amount
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPaymentDraft(String(Number(r.share.toFixed(2))));
+                              void handleSavePayment(r.roommateId);
+                            }}
+                            className="py-2.5 rounded-xl text-xs font-semibold text-white"
+                            style={{ background: "linear-gradient(135deg, #10B981, #059669)" }}
+                          >
+                            Mark Fully Paid
+                          </button>
+                          <button
+                            type="button"
+                            onClick={closePaymentEditor}
+                            className="py-2.5 rounded-xl text-xs font-semibold"
+                            style={{ background: "white", color: "var(--muted-foreground)", border: "1px solid var(--border)" }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2 mt-3">
+                        {remaining > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => updatePayment(r.roommateId, r.share)}
+                            className="flex-1 py-2.5 rounded-xl text-xs font-semibold text-white"
+                            style={{ background: "linear-gradient(135deg, #10B981, #059669)" }}
+                          >
+                            Mark Fully Paid
+                          </button>
+                        )}
+                        {r.paid > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => updatePayment(r.roommateId, 0)}
+                            className="flex-1 py-2.5 rounded-xl text-xs font-semibold"
+                            style={{ background: "white", color: "var(--muted-foreground)", border: "1px solid var(--border)" }}
+                          >
+                            Clear Payment
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             );

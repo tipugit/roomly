@@ -12,6 +12,9 @@ import {
   Link2,
   Zap,
   ChevronRight,
+  Pencil,
+  Check,
+  X,
   Home,
   Wifi,
   Zap as Electric,
@@ -167,8 +170,10 @@ const renderPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }:
 };
 
 export function DashboardPage() {
-  const { roommates, activeBill, activities, bills, navigate, settings, darkMode } = useApp();
+  const { roommates, activeBill, activities, bills, navigate, settings, darkMode, updatePayment, showToast } = useApp();
   const { announcements } = useAuth();
+  const [editingPaymentId, setEditingPaymentId] = useState<number | null>(null);
+  const [paymentDraft, setPaymentDraft] = useState("");
 
   const monthlyTrend = useMemo(() => {
     if (bills.length === 0) return [];
@@ -294,9 +299,32 @@ export function DashboardPage() {
         avatarGrad: roommate?.avatarGrad,
         status: share.status,
         amount,
+        paid: share.paid,
+        share: share.share,
       };
     });
   }, [activeBill, roommates]);
+
+  const openPaymentEditor = (roommateId: number, paid: number) => {
+    setEditingPaymentId(roommateId);
+    setPaymentDraft(paid > 0 ? String(Number(paid.toFixed(2))) : "");
+  };
+
+  const closePaymentEditor = () => {
+    setEditingPaymentId(null);
+    setPaymentDraft("");
+  };
+
+  const savePayment = async (roommateId: number) => {
+    const raw = paymentDraft.trim();
+    const nextPaid = raw === "" ? 0 : Number(raw);
+    if (!Number.isFinite(nextPaid) || nextPaid < 0) {
+      showToast("Enter a valid payment amount", "error");
+      return;
+    }
+    await updatePayment(roommateId, nextPaid);
+    closePaymentEditor();
+  };
 
   const pieTotal = breakdownData.reduce((s, d) => s + d.value, 0);
   const monthButtons = monthlyTrend.map((d) => d.month);
@@ -704,33 +732,108 @@ export function DashboardPage() {
             paymentRows.map((r, idx) => (
               <div
                 key={r.id}
-                className="flex items-center gap-3 py-2.5"
+                className="py-2.5"
                 style={{
                   borderBottom: idx < paymentRows.length - 1 ? "1px solid var(--border)" : "none",
                 }}
               >
-                <div
-                  className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                  style={{ background: r.avatarGrad ?? r.color }}
-                >
-                  {r.initials}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div style={{ color: "var(--foreground)", fontSize: "13px", fontWeight: 600 }}>
-                    {r.name.split(" ")[0]}
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                    style={{ background: r.avatarGrad ?? r.color }}
+                  >
+                    {r.initials}
                   </div>
-                  <div style={{ color: "var(--muted-foreground)", fontSize: "12px" }}>{r.amount}</div>
+                  <div className="flex-1 min-w-0">
+                    <div style={{ color: "var(--foreground)", fontSize: "13px", fontWeight: 600 }}>
+                      {r.name.split(" ")[0]}
+                    </div>
+                    <div style={{ color: "var(--muted-foreground)", fontSize: "12px" }}>{r.amount}</div>
+                  </div>
+                  <span
+                    className="px-2 py-0.5 rounded-full font-semibold flex-shrink-0"
+                    style={{
+                      background: payStyle[r.status].bg,
+                      color: payStyle[r.status].text,
+                      fontSize: "11px",
+                    }}
+                  >
+                    {r.status}
+                  </span>
                 </div>
-                <span
-                  className="px-2 py-0.5 rounded-full font-semibold flex-shrink-0"
-                  style={{
-                    background: payStyle[r.status].bg,
-                    color: payStyle[r.status].text,
-                    fontSize: "11px",
-                  }}
-                >
-                  {r.status}
-                </span>
+
+                {editingPaymentId === r.id ? (
+                  <div className="mt-2 flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      inputMode="decimal"
+                      value={paymentDraft}
+                      onChange={(e) => setPaymentDraft(e.target.value)}
+                      placeholder="0.00"
+                      className="flex-1 px-3 py-2 rounded-xl outline-none"
+                      style={{
+                        background: "var(--muted)",
+                        border: "1px solid var(--border)",
+                        color: "var(--foreground)",
+                        fontSize: "12px",
+                      }}
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void savePayment(r.id)}
+                        className="flex items-center justify-center gap-1 px-3 py-2 rounded-xl text-white font-semibold"
+                        style={{ background: "#4F46E5", fontSize: "11px" }}
+                      >
+                        <Check size={12} />
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPaymentDraft(String(Number(r.share.toFixed(2))));
+                          void savePayment(r.id);
+                        }}
+                        className="px-3 py-2 rounded-xl text-white font-semibold"
+                        style={{ background: "#059669", fontSize: "11px" }}
+                      >
+                        Full
+                      </button>
+                      <button
+                        type="button"
+                        onClick={closePaymentEditor}
+                        className="flex items-center justify-center gap-1 px-3 py-2 rounded-xl font-semibold"
+                        style={{ background: "var(--muted)", color: "var(--muted-foreground)", fontSize: "11px", border: "1px solid var(--border)" }}
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openPaymentEditor(r.id, r.paid)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl font-semibold"
+                      style={{ background: "var(--muted)", color: "var(--foreground)", fontSize: "11px", border: "1px solid var(--border)" }}
+                    >
+                      <Pencil size={12} />
+                      {r.paid > 0 ? "Edit payment" : "Add payment"}
+                    </button>
+                    {r.status !== "Paid" && (
+                      <button
+                        type="button"
+                        onClick={() => void updatePayment(r.id, r.share)}
+                        className="px-2.5 py-1.5 rounded-xl text-white font-semibold"
+                        style={{ background: "#059669", fontSize: "11px" }}
+                      >
+                        Mark paid
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             ))
           ) : (

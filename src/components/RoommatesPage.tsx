@@ -4,6 +4,8 @@ import {
   Plus,
   Eye,
   Edit2,
+  Pencil,
+  Check,
   Trash2,
   Phone,
   Mail,
@@ -496,12 +498,14 @@ function nextStatus(current: RoommateStatus): RoommateStatus {
 }
 
 export function RoommatesPage() {
-  const { roommates, addRoommate, deleteRoommate, updateRoommate } = useApp();
+  const { roommates, activeBill, addRoommate, deleteRoommate, updateRoommate, updatePayment, showToast } = useApp();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterOption>("All");
   const [showModal, setShowModal] = useState(false);
   const [editTarget, setEditTarget] = useState<Roommate | null>(null);
   const [viewTarget, setViewTarget] = useState<Roommate | null>(null);
+  const [editingPaymentId, setEditingPaymentId] = useState<number | null>(null);
+  const [paymentDraft, setPaymentDraft] = useState("");
 
   const counts = useMemo(
     () => ({
@@ -526,6 +530,18 @@ export function RoommatesPage() {
     });
   }, [roommates, search, filter]);
 
+  const activeBillShares = useMemo(() => {
+    const shareMap = new Map<number, { paid: number; share: number; status: string }>();
+    activeBill?.roommateShares.forEach((share) => {
+      shareMap.set(share.roommateId, {
+        paid: share.paid,
+        share: share.share,
+        status: share.status,
+      });
+    });
+    return shareMap;
+  }, [activeBill]);
+
   const handleAdd = (data: Parameters<typeof addRoommate>[0]) => {
     addRoommate(data);
     setShowModal(false);
@@ -541,6 +557,27 @@ export function RoommatesPage() {
 
   const handleDelete = (roommate: Roommate) => {
     deleteRoommate(roommate.id);
+  };
+
+  const openPaymentEditor = (roommateId: number, paid: number) => {
+    setEditingPaymentId(roommateId);
+    setPaymentDraft(paid > 0 ? String(Number(paid.toFixed(2))) : "");
+  };
+
+  const closePaymentEditor = () => {
+    setEditingPaymentId(null);
+    setPaymentDraft("");
+  };
+
+  const savePayment = async (roommateId: number) => {
+    const raw = paymentDraft.trim();
+    const nextPaid = raw === "" ? 0 : Number(raw);
+    if (!Number.isFinite(nextPaid) || nextPaid < 0) {
+      showToast("Enter a valid payment amount", "error");
+      return;
+    }
+    await updatePayment(roommateId, nextPaid);
+    closePaymentEditor();
   };
 
   const filterOptions: FilterOption[] = ["All", "Active", "Pending", "Inactive"];
@@ -647,6 +684,8 @@ export function RoommatesPage() {
         {filtered.map((r) => {
           const ss = statusStyle[r.status];
           const ps = payStyle[r.payStatus];
+          const billShare = activeBillShares.get(r.id);
+          const isEditingPayment = editingPaymentId === r.id;
           return (
             <div
               key={r.id}
@@ -782,9 +821,9 @@ export function RoommatesPage() {
                     </div>
                     <span
                       className="px-2 py-0.5 rounded-full font-semibold"
-                      style={{ background: ps.bg, color: ps.text, fontSize: "11px" }}
+                      style={{ background: (billShare ? payStyle[billShare.status] : ps).bg, color: (billShare ? payStyle[billShare.status] : ps).text, fontSize: "11px" }}
                     >
-                      {r.payStatus}
+                      {billShare?.status ?? r.payStatus}
                     </span>
                   </div>
                   <div className="text-right">
@@ -803,6 +842,101 @@ export function RoommatesPage() {
                     </div>
                   </div>
                 </div>
+
+                {billShare && (
+                  <div className="mb-3 sm:mb-4 p-3 rounded-xl" style={{ background: "var(--muted)", border: "1px solid var(--border)" }}>
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <div>
+                        <div style={{ color: "var(--muted-foreground)", fontSize: "10px", fontWeight: 600, letterSpacing: "0.3px" }}>
+                          PAID THIS MONTH
+                        </div>
+                        <div style={{ color: "var(--foreground)", fontWeight: 800, fontSize: "16px", letterSpacing: "-0.2px", marginTop: 2 }}>
+                          ${billShare.paid.toLocaleString()}
+                        </div>
+                      </div>
+                      {!isEditingPayment && (
+                        <button
+                          type="button"
+                          onClick={() => openPaymentEditor(r.id, billShare.paid)}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl font-semibold"
+                          style={{ background: "white", color: "var(--foreground)", fontSize: "11px", border: "1px solid var(--border)" }}
+                        >
+                          <Pencil size={12} />
+                          {billShare.paid > 0 ? "Edit payment" : "Add payment"}
+                        </button>
+                      )}
+                    </div>
+
+                    {isEditingPayment ? (
+                      <div className="mt-3 space-y-2">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          inputMode="decimal"
+                          value={paymentDraft}
+                          onChange={(e) => setPaymentDraft(e.target.value)}
+                          placeholder="0.00"
+                          className="w-full px-3 py-2.5 rounded-xl outline-none"
+                          style={{ background: "white", border: "1px solid var(--border)", color: "var(--foreground)", fontSize: "12px" }}
+                        />
+                        <div className="grid grid-cols-3 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void savePayment(r.id)}
+                            className="py-2 rounded-xl text-white font-semibold"
+                            style={{ background: "#4F46E5", fontSize: "11px" }}
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPaymentDraft(String(Number(billShare.share.toFixed(2))));
+                              void savePayment(r.id);
+                            }}
+                            className="inline-flex items-center justify-center gap-1 py-2 rounded-xl text-white font-semibold"
+                            style={{ background: "#059669", fontSize: "11px" }}
+                          >
+                            <Check size={12} />
+                            Full
+                          </button>
+                          <button
+                            type="button"
+                            onClick={closePaymentEditor}
+                            className="py-2 rounded-xl font-semibold"
+                            style={{ background: "white", color: "var(--muted-foreground)", fontSize: "11px", border: "1px solid var(--border)" }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2 mt-3">
+                        {billShare.status !== "Paid" && (
+                          <button
+                            type="button"
+                            onClick={() => void updatePayment(r.id, billShare.share)}
+                            className="flex-1 py-2 rounded-xl text-white font-semibold"
+                            style={{ background: "#059669", fontSize: "11px" }}
+                          >
+                            Mark paid
+                          </button>
+                        )}
+                        {billShare.paid > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => void updatePayment(r.id, 0)}
+                            className="flex-1 py-2 rounded-xl font-semibold"
+                            style={{ background: "white", color: "var(--muted-foreground)", fontSize: "11px", border: "1px solid var(--border)" }}
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex gap-2">
                   <button
