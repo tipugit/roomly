@@ -241,7 +241,7 @@ function AddModal({ onClose, onAdd }: AddModalProps) {
                 style={inputStyle}
               />
               <p style={{ color: "var(--muted-foreground)", fontSize: "10px", marginTop: 4 }}>
-                Only bills from this date onward will include this member
+                Included on that month’s bill and later — e.g. start Aug 1 → August bill
               </p>
             </div>
             <div>
@@ -374,6 +374,9 @@ function EditModal({
           <div>
             <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: 6 }}>Member Since</label>
             <input type="date" value={joinDate} onChange={(e) => setJoinDate(e.target.value)} className="w-full px-4 py-2.5 rounded-xl outline-none" style={inputStyle} />
+            <p style={{ fontSize: "10px", color: "var(--muted-foreground)", marginTop: 4 }}>
+              Included on that month’s bill and later — e.g. start Aug 1 → August bill
+            </p>
           </div>
           {moveOutDate && (
             <div className="p-3 rounded-xl" style={{ background: "#F1F5F9", border: "1px solid var(--border)" }}>

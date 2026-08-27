@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import {
   Plus,
   Trash2,
@@ -11,7 +11,7 @@ import {
 import { useApp } from "@/context/AppContext";
 import { ExpenseMemberSelector } from "@/components/ExpenseMemberSelector";
 import type { DefaultBillExpense, Expense, ParkingAssignment, Settings } from "@/types";
-import { formatMonthYear, isRoommateEligibleForBill } from "@/lib/memberDates";
+import { formatMemberDate, formatMonthYear, isRoommateEligibleForBill, isRoommateSelectableForBill } from "@/lib/memberDates";
 import { MemberCalculationPanel } from "@/components/MemberCalculationPanel";
 import {
   buildParkingSnapshotFromSettings,
@@ -159,7 +159,7 @@ export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) 
     cloneParkingAssignments(buildParkingSnapshotFromSettings(settings)?.assignments ?? [])
   );
   const [selected, setSelected] = useState<number[]>(() =>
-    roommates.filter((r) => r.status === "Active").map((r) => r.id)
+    roommates.filter((r) => isRoommateEligibleForBill(r, defaultMonth)).map((r) => r.id)
   );
   const [announcementTitle, setAnnouncementTitle] = useState("");
   const [announcementMessage, setAnnouncementMessage] = useState("");
@@ -216,19 +216,26 @@ export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) 
     }
   }, [month, extraBillMonth, isExtraBill]);
 
+  const billMonthRef = useRef(billMonth);
+
   useEffect(() => {
+    const monthChanged = billMonthRef.current !== billMonth;
+    billMonthRef.current = billMonth;
+    const selectable = roommates.filter(isRoommateSelectableForBill).map((r) => r.id);
     const eligible = roommates
       .filter((r) => isRoommateEligibleForBill(r, billMonth))
       .map((r) => r.id);
     setSelected((prev) => {
-      const next = prev.filter((id) => eligible.includes(id));
-      const removed = prev.filter((id) => !eligible.includes(id));
+      if (monthChanged) return eligible;
+      const next = prev.filter((id) => selectable.includes(id));
+      const removed = prev.filter((id) => !selectable.includes(id));
       if (removed.length > 0) {
         setExpenses((exps) =>
           exps.map((e) => (e.paidBy && removed.includes(e.paidBy) ? { ...e, paidBy: null } : e))
         );
       }
-      return next.length > 0 ? next : eligible;
+      const merged = Array.from(new Set([...eligible, ...next]));
+      return merged.length > 0 ? merged : eligible;
     });
   }, [billMonth, roommates]);
 
@@ -312,7 +319,7 @@ export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) 
 
   const roundUp = settings.roundUpAmounts ?? false;
 
-  const eligibleRoommates = roommates.filter((r) => isRoommateEligibleForBill(r, billMonth));
+  const selectableRoommates = roommates.filter(isRoommateSelectableForBill);
 
   const roommateShares = buildRoommateShares(
     roommates,
@@ -1048,11 +1055,12 @@ export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) 
 
           <SectionCard
             title="Split Among"
-            subtitle="Active members eligible for this billing period"
+            subtitle="Members starting this month (e.g. Aug 1) can be included on this bill"
           >
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {eligibleRoommates.map((r) => {
+              {selectableRoommates.map((r) => {
                 const isSelected = selected.includes(r.id);
+                const startsLater = !isRoommateEligibleForBill(r, billMonth);
                 return (
                   <button
                     key={r.id}
@@ -1077,15 +1085,19 @@ export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) 
                       <div style={{ color: isSelected ? r.color : "var(--foreground)", fontSize: "12px", fontWeight: isSelected ? 700 : 500 }} className="truncate">
                         {r.name.split(" ")[0]}
                       </div>
-                      <div style={{ color: "var(--muted-foreground)", fontSize: "9px" }}>Room {r.room}</div>
+                      <div style={{ color: "var(--muted-foreground)", fontSize: "9px" }}>
+                        {startsLater && r.joinDate
+                          ? `Starts ${formatMemberDate(r.joinDate)}`
+                          : `Room ${r.room}`}
+                      </div>
                     </div>
                   </button>
                 );
               })}
             </div>
-            {roommates.length > eligibleRoommates.length && (
+            {roommates.length > selectableRoommates.length && (
               <p style={{ color: "var(--muted-foreground)", fontSize: "11px", marginTop: 8 }}>
-                {roommates.length - eligibleRoommates.length} member(s) hidden — inactive or not yet joined for this month
+                {roommates.length - selectableRoommates.length} inactive member(s) hidden
               </p>
             )}
             <div
