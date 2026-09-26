@@ -28,6 +28,7 @@ import {
   calcCollectionSummary,
   copyBillLink,
   formatAmount,
+  formatExpensePayers,
   formatParkingShareLabel,
   formatSharedByLabel,
   getActiveParkingAssignments,
@@ -321,14 +322,13 @@ export function BillViewPage({ billId }: BillViewPageProps) {
           </div>
           <div className="divide-y max-h-[240px] overflow-y-auto" style={{ borderColor: "var(--border)" }}>
             {expenseRows.map((row) => {
-              const payer = row.paidBy ? getRoommateById(roommates, row.paidBy) : null;
               return (
                 <div key={row.id} className="flex justify-between px-4 py-2.5 gap-2">
                   <div className="min-w-0">
                     <div style={{ fontWeight: 600, fontSize: "12px" }}>{row.name}</div>
                     <div style={{ fontSize: "10px", color: "var(--muted-foreground)" }}>
                       {row.id === 0 ? "All members" : formatSharedByLabel(row, roommates, bill.selectedRoommateIds)}
-                      {payer ? ` · Paid by ${payer.name.split(" ")[0]}` : " · Unpaid"}
+                      {` · ${formatExpensePayers(row, roommates)}`}
                     </div>
                   </div>
                   <span style={{ fontWeight: 700, fontSize: "13px", color: "#4F46E5", flexShrink: 0 }}>

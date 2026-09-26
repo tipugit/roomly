@@ -83,6 +83,7 @@ export interface Expense {
   name: string;
   amount: number;
   paidBy?: number;
+  paidByIds?: number[];
   category: string;
   icon?: string;
   note?: string;

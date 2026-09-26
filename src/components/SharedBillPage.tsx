@@ -35,6 +35,7 @@ import {
   buildMemberShareBreakdown,
   calcCollectionSummary,
   formatAmount,
+  formatExpensePayers,
   formatParkingShareLabel,
   formatSharedByLabel,
   getActiveParkingAssignments,
@@ -456,11 +457,6 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
             {expenses.map((e) => {
               const color = getCategoryColor(e.category);
               const icon = e.icon ?? getCategoryIcon(e.category);
-              const payer = e.paidBy
-                ? (sharedPayload
-                    ? billRoommates.find((r) => r.id === e.paidBy)
-                    : getRoommateById(roommates, e.paidBy))
-                : null;
               const sharedLabel =
                 e.id === 0
                   ? "All members"
@@ -477,7 +473,7 @@ export function SharedBillPage({ onBack }: SharedBillPageProps) {
                     <div style={{ color: "#0F0D2A", fontWeight: 600, fontSize: "14px" }}>{e.name}</div>
                     <div style={{ color: "#94A3B8", fontSize: "11px", marginTop: 2 }}>
                       {sharedLabel}
-                      {payer && ` · Paid by ${payer.name.split(" ")[0]}`}
+                      {` · ${formatExpensePayers(e, billRoommates)}`}
                     </div>
                   </div>
                   <span style={{ color: "#0F0D2A", fontWeight: 800, fontSize: "16px" }}>${e.amount.toLocaleString()}</span>

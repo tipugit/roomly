@@ -271,7 +271,7 @@ if ($route === 'bills' && $method === 'POST') {
                 $sharedBy = [];
             }
             $expStmt = $db->prepare(
-                'INSERT INTO bill_expenses (bill_id, name, amount, category, paid_by, note, icon, share_mode, shared_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                'INSERT INTO bill_expenses (bill_id, name, amount, category, paid_by, paid_by_ids, note, icon, share_mode, shared_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
             );
             $expStmt->execute([
                 $billId,
@@ -279,6 +279,7 @@ if ($route === 'bills' && $method === 'POST') {
                 (float) ($e['amount'] ?? 0),
                 $e['category'] ?? 'Other',
                 isset($e['paidBy']) ? (int) $e['paidBy'] : null,
+                json_encode(array_values(array_unique(array_map('intval', $e['paidByIds'] ?? (isset($e['paidBy']) ? [$e['paidBy']] : []))))),
                 $e['note'] ?? null,
                 $e['icon'] ?? null,
                 $shareMode,
@@ -353,9 +354,9 @@ if (preg_match('#^bills/([^/]+)/duplicate$#', $route, $m) && $method === 'POST')
         $expStmt->execute([$sourceId]);
         foreach ($expStmt->fetchAll() as $e) {
             $db->prepare(
-                'INSERT INTO bill_expenses (bill_id, name, amount, category, paid_by, note, icon, share_mode, shared_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                'INSERT INTO bill_expenses (bill_id, name, amount, category, paid_by, paid_by_ids, note, icon, share_mode, shared_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
             )->execute([
-                $newId, $e['name'], $e['amount'], $e['category'], $e['paid_by'],
+                $newId, $e['name'], $e['amount'], $e['category'], $e['paid_by'], $e['paid_by_ids'] ?? null,
                 $e['note'], $e['icon'], $e['share_mode'], $e['shared_by'],
             ]);
         }
@@ -446,7 +447,7 @@ if (preg_match('#^bills/([^/]+)$#', $route, $m) && $method === 'PUT') {
                 $sharedBy = [];
             }
             $expStmt = $db->prepare(
-                'INSERT INTO bill_expenses (bill_id, name, amount, category, paid_by, note, icon, share_mode, shared_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                'INSERT INTO bill_expenses (bill_id, name, amount, category, paid_by, paid_by_ids, note, icon, share_mode, shared_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
             );
             $expStmt->execute([
                 $billId,
@@ -454,6 +455,7 @@ if (preg_match('#^bills/([^/]+)$#', $route, $m) && $method === 'PUT') {
                 (float) ($e['amount'] ?? 0),
                 $e['category'] ?? 'Other',
                 isset($e['paidBy']) ? (int) $e['paidBy'] : null,
+                json_encode(array_values(array_unique(array_map('intval', $e['paidByIds'] ?? (isset($e['paidBy']) ? [$e['paidBy']] : []))))),
                 $e['note'] ?? null,
                 $e['icon'] ?? null,
                 $shareMode,

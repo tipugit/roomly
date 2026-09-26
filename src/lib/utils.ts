@@ -69,7 +69,7 @@ export interface MemberShareBreakdown {
   rentShare: number;
   expenseShare: number;
   parkingShare: number;
-  /** Sum of expenses this member paid upfront (paidBy). */
+  /** Sum of this member's equal shares of upfront payments. */
   upfrontPaid: number;
   /** Gross split before upfront credits. */
   grossTotal: number;
@@ -79,11 +79,30 @@ export interface MemberShareBreakdown {
   total: number;
 }
 
-/** Total amount a member paid upfront on bill expenses (full expense amounts). */
+export function getExpensePayerIds(expense: Expense): number[] {
+  return expense.paidByIds ?? (expense.paidBy ? [expense.paidBy] : []);
+}
+
+export function formatExpensePayers(expense: Expense, roommates: Pick<Roommate, "id" | "name">[]): string {
+  const names = getExpensePayerIds(expense)
+    .map((id) => roommates.find((r) => r.id === id)?.name.split(" ")[0])
+    .filter(Boolean);
+  return names.length ? `Paid by ${names.join(", ")}` : "Unpaid";
+}
+
+function getExpensePayerAmount(expense: Expense, roommateId: number): number {
+  const payerIds = getExpensePayerIds(expense);
+  const index = payerIds.indexOf(roommateId);
+  if (index < 0) return 0;
+  const cents = Math.round(expense.amount * 100);
+  const base = Math.floor(cents / payerIds.length);
+  return (base + (index < cents % payerIds.length ? 1 : 0)) / 100;
+}
+
+/** Total amount credited to a member for expenses paid upfront, split equally among payers. */
 export function getUpfrontPaidByMember(roommateId: number, expenses: Expense[]): number {
   return expenses
-    .filter((e) => e.paidBy === roommateId)
-    .reduce((sum, e) => sum + e.amount, 0);
+    .reduce((sum, e) => sum + getExpensePayerAmount(e, roommateId), 0);
 }
 
 /** Remaining balance for a roommate after recorded payments. */
@@ -182,14 +201,11 @@ export function buildMemberCalculationSteps(
     const sharers = getExpenseSharers(expense, selectedIds);
     if (!sharers.includes(roommateId) || sharers.length === 0) continue;
     const share = expense.amount / sharers.length;
-    const payer = expense.paidBy ? roommates.find((r) => r.id === expense.paidBy) : null;
     const shareLabel = formatSharedByLabel(expense, roommates, selectedIds);
     lines.push({
       type: "add",
       label: expense.name || expense.category,
-      detail: `$${expense.amount.toLocaleString()} ÷ ${sharers.length} (${shareLabel})${
-        payer ? ` · Paid upfront by ${payer.name.split(" ")[0]}` : " · Unpaid"
-      }`,
+      detail: `$${expense.amount.toLocaleString()} ÷ ${sharers.length} (${shareLabel}) · ${formatExpensePayers(expense, roommates)}`,
       amount: roundMoney(share, roundUp),
     });
   }
@@ -212,13 +228,14 @@ export function buildMemberCalculationSteps(
 
   const memberName = roommates.find((r) => r.id === roommateId)?.name.split(" ")[0] ?? "Member";
 
-  for (const expense of expenses.filter((e) => e.paidBy === roommateId)) {
+  for (const expense of expenses.filter((e) => getExpensePayerIds(e).includes(roommateId))) {
     const expenseLabel = expense.name || expense.category;
+    const paidAmount = getExpensePayerAmount(expense, roommateId);
     lines.push({
       type: "subtract",
       label: `Prepaid (${expenseLabel})`,
-      detail: `(${memberName}) paid $${expense.amount.toLocaleString()} upfront for ${expenseLabel}`,
-      amount: roundMoney(expense.amount, roundUp),
+      detail: `(${memberName}) paid ${formatAmount(paidAmount)} upfront for ${expenseLabel}`,
+      amount: roundMoney(paidAmount, roundUp),
     });
   }
 

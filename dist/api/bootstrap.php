@@ -196,6 +196,10 @@ function fetch_full_state(PDO $db, int $houseId): array
                 'amount' => (float) $e['amount'],
                 'category' => $e['category'],
                 'paidBy' => $e['paid_by'] !== null ? (int) $e['paid_by'] : null,
+                'paidByIds' => (static function () use ($e): array {
+                    $ids = json_decode($e['paid_by_ids'] ?? 'null', true);
+                    return is_array($ids) ? array_map('intval', $ids) : ($e['paid_by'] !== null ? [(int) $e['paid_by']] : []);
+                })(),
                 'note' => $e['note'],
                 'icon' => $e['icon'],
                 'shareMode' => $e['share_mode'] ?? 'all',

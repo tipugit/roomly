@@ -76,6 +76,8 @@ Use this when **Deploy HEAD Commit** is not clickable. Many Namecheap/cPanel pla
 
 5. **Database** (first time): phpMyAdmin → import `roomly/dist/api/database.sql`
 
+For an existing database, run `api/migrations/004_multiple_expense_payers.sql` in phpMyAdmin before deploying the multi-payer bill update.
+
 ### Every update after `git push`
 
 1. **Git Version Control → Manage**

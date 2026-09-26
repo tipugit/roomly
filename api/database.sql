@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS bill_expenses (
   amount DECIMAL(12,2) NOT NULL DEFAULT 0,
   category VARCHAR(64) NOT NULL DEFAULT 'Other',
   paid_by INT UNSIGNED NULL,
+  paid_by_ids JSON NULL,
   note VARCHAR(255) NULL,
   icon VARCHAR(16) NULL,
   share_mode VARCHAR(16) NOT NULL DEFAULT 'all',

@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { ExpenseMemberSelector } from "@/components/ExpenseMemberSelector";
+import { MemberCheckboxGrid } from "@/components/MemberCheckboxGrid";
 import type { DefaultBillExpense, Expense, ParkingAssignment, Settings } from "@/types";
 import { formatMemberDate, formatMonthYear, isRoommateEligibleForBill, isRoommateSelectableForBill } from "@/lib/memberDates";
 import { MemberCalculationPanel } from "@/components/MemberCalculationPanel";
@@ -23,6 +24,7 @@ import {
   formatParkingShareLabel,
   getMemberAmountDue,
   getParkingShareMemberIds,
+  formatExpensePayers,
 } from "@/lib/utils";
 
 const expenseCategories = [
@@ -39,7 +41,7 @@ interface FormExpense {
   id: number;
   name: string;
   amount: string;
-  paidBy: number | null;
+  paidByIds: number[];
   category: string;
   shareMode: "all" | "selected";
   sharedBy: number[];
@@ -107,7 +109,7 @@ function buildExpensesFromSettings(settings: Settings): FormExpense[] {
     id: i + 1,
     name: t.name,
     amount: String(t.amount),
-    paidBy: null,
+    paidByIds: [],
     category: t.category,
     shareMode: t.shareMode ?? "all",
     sharedBy: [],
@@ -172,7 +174,7 @@ export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) 
         id: Date.now(),
         name: "",
         amount: "",
-        paidBy: null,
+        paidByIds: [],
         category: "Other",
         shareMode: "all",
         sharedBy: [],
@@ -193,7 +195,7 @@ export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) 
       const next = removing ? prev.filter((i) => i !== id) : [...prev, id];
       if (removing) {
         setExpenses((exps) =>
-          exps.map((e) => (e.paidBy === id ? { ...e, paidBy: null } : e))
+          exps.map((e) => ({ ...e, paidByIds: e.paidByIds.filter((payerId) => payerId !== id) }))
         );
       }
       return next;
@@ -231,7 +233,7 @@ export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) 
       const removed = prev.filter((id) => !selectable.includes(id));
       if (removed.length > 0) {
         setExpenses((exps) =>
-          exps.map((e) => (e.paidBy && removed.includes(e.paidBy) ? { ...e, paidBy: null } : e))
+          exps.map((e) => ({ ...e, paidByIds: e.paidByIds.filter((id) => !removed.includes(id)) }))
         );
       }
       const merged = Array.from(new Set([...eligible, ...next]));
@@ -256,7 +258,7 @@ export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) 
         id: e.id,
         name: e.name,
         amount: String(e.amount),
-        paidBy: e.paidBy ?? null,
+        paidByIds: e.paidByIds ?? (e.paidBy ? [e.paidBy] : []),
         category: e.category,
         shareMode: e.shareMode ?? "all",
         sharedBy: e.sharedBy ?? [],
@@ -311,7 +313,7 @@ export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) 
     id: e.id,
     name: e.name || e.category,
     amount: parseFloat(e.amount) || 0,
-    paidBy: e.paidBy ?? undefined,
+    paidByIds: e.paidByIds,
     category: e.category,
     shareMode: e.shareMode,
     sharedBy: e.shareMode === "selected" ? e.sharedBy : undefined,
@@ -696,42 +698,20 @@ export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) 
                         />
                       </div>
                     </div>
-                    <div className="w-32 sm:w-36 flex-shrink-0">
-                      <label style={{ color: "var(--muted-foreground)", fontSize: "10px", fontWeight: 600, display: "block", marginBottom: 4 }}>
-                        PAID BY
-                      </label>
-                      <select
-                        value={exp.paidBy ?? ""}
-                        onChange={(e) =>
-                          updateExpense(
-                            exp.id,
-                            "paidBy",
-                            e.target.value === "" ? null : parseInt(e.target.value, 10)
-                          )
-                        }
-                        className="w-full px-2 py-1.5 rounded-lg outline-none appearance-none"
-                        style={{
-                          background: exp.paidBy ? "#ECFDF5" : "#FEF2F2",
-                          border: `1px solid ${exp.paidBy ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.2)"}`,
-                          color: "var(--foreground)",
-                          fontSize: "12px",
-                        }}
-                      >
-                        <option value="">Unpaid</option>
-                        {selected.map((id) => {
-                          const r = roommates.find((rm) => rm.id === id);
-                          if (!r) return null;
-                          return (
-                            <option key={r.id} value={r.id}>
-                              {r.name.split(" ")[0]}
-                            </option>
-                          );
-                        })}
-                      </select>
-                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <label style={{ color: "var(--muted-foreground)", fontSize: "10px", fontWeight: 600, display: "block", marginBottom: 6 }}>
+                      PAID UPFRONT BY
+                    </label>
+                    <MemberCheckboxGrid
+                      members={selected.map((id) => roommates.find((r) => r.id === id)!).filter(Boolean).map((r) => ({ id: r.id, name: r.name, room: r.room, color: r.color }))}
+                      selectedIds={exp.paidByIds}
+                      onChange={(ids) => setExpenses((prev) => prev.map((item) => item.id === exp.id ? { ...item, paidByIds: ids } : item))}
+                      compact
+                    />
                   </div>
                   <p style={{ color: "var(--muted-foreground)", fontSize: "10px", marginTop: 6, marginBottom: 0 }}>
-                    Who already paid this expense upfront? Leave as Unpaid if nobody has paid yet.
+                    Select everyone who paid upfront. The amount is split equally between them. Leave all unselected if unpaid.
                   </p>
                   <ExpenseMemberSelector
                     roommates={selected.map((id) => roommates.find((r) => r.id === id)!).filter(Boolean)}
@@ -1159,16 +1139,16 @@ export function BillCreationPage({ onCreated }: { onCreated?: (billId?: string) 
               {expenses
                 .filter((e) => e.name || parseFloat(e.amount))
                 .map((e) => {
-                  const payer = e.paidBy ? roommates.find((r) => r.id === e.paidBy) : null;
+                  const payerLabel = formatExpensePayers({ ...e, amount: parseFloat(e.amount) || 0 }, roommates);
                   return (
                     <div key={e.id} className="flex justify-between items-start">
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.55)", fontSize: "13px" }}>
                           {e.name || e.category}
                         </div>
-                        {payer && (
+                        {e.paidByIds.length > 0 && (
                           <div style={{ color: "rgba(255,255,255,0.35)", fontSize: "10px" }}>
-                            Paid by {payer.name.split(" ")[0]}
+                            {payerLabel}
                           </div>
                         )}
                       </div>
