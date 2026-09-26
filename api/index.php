@@ -13,6 +13,21 @@ try {
     respond_error('Database connection failed. Check api/config.php credentials.', 500);
 }
 
+function ensure_expense_payers_column(PDO $db): void
+{
+    if (schema_column_exists($db, 'bill_expenses', 'paid_by_ids')) return;
+
+    try {
+        // Schema changes must finish before the bill transaction starts.
+        $db->exec('ALTER TABLE bill_expenses ADD COLUMN paid_by_ids JSON NULL AFTER paid_by');
+    } catch (Throwable $e) {
+        // Another request may have added the column after our check.
+        if ($e instanceof PDOException && ($e->errorInfo[1] ?? null) === 1060) return;
+        error_log('Could not add bill_expenses.paid_by_ids: ' . $e->getMessage());
+        respond_error('Database update needed. Apply migration 004_multiple_expense_payers.sql, then try again.', 500);
+    }
+}
+
 // --- AUTH ---
 if ($route === 'auth/register' && $method === 'POST') {
     $body = json_input();
@@ -246,6 +261,7 @@ if ($route === 'bills' && $method === 'POST') {
 
     $parkingJson = is_array($parkingSnapshot) ? json_encode($parkingSnapshot) : null;
 
+    ensure_expense_payers_column($db);
     $db->beginTransaction();
     try {
         $stmt = $db->prepare(
@@ -334,6 +350,7 @@ if (preg_match('#^bills/([^/]+)/duplicate$#', $route, $m) && $method === 'POST')
     if (!$source) respond_error('Bill not found.', 404);
 
     $newId = 'bill-' . time() . '-' . bin2hex(random_bytes(4));
+    ensure_expense_payers_column($db);
     $db->beginTransaction();
     try {
         $db->prepare(
@@ -420,6 +437,7 @@ if (preg_match('#^bills/([^/]+)$#', $route, $m) && $method === 'PUT') {
 
     $parkingJson = is_array($parkingSnapshot) ? json_encode($parkingSnapshot) : null;
 
+    ensure_expense_payers_column($db);
     $db->beginTransaction();
     try {
         $db->prepare(
@@ -480,6 +498,7 @@ if (preg_match('#^bills/([^/]+)$#', $route, $m) && $method === 'PUT') {
         $db->commit();
     } catch (Throwable $e) {
         $db->rollBack();
+        error_log('Bill update failed: ' . $e->getMessage());
         respond_error('Failed to update bill.', 500);
     }
 
